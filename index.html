@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Glove Up">
+<meta name="theme-color" content="#0b1410">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>Glove Up</title>
+<style>
+:root{--bg:#0b1410;--panel:#13211a;--panel2:#1b2d24;--line:#2a4034;--text:#f3f6f1;--muted:#9fb3a7;--green:#38d46c;--yellow:#f0e637;--gold:#f2c230;--red:#ff6161}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI",Roboto,sans-serif;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+body{overflow:hidden}
+button,select,input{font:inherit;color:inherit}
+button{border:0;cursor:pointer;background:none}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;z-index:2}
+.screen.active{display:flex}
+.scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 28px);max-width:760px;width:100%;margin:0 auto;height:100%}
+h1,h2,h3{margin:0}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.brand img{width:52px;height:52px;border-radius:14px}
+.brand h1{font-size:28px;letter-spacing:1px;font-weight:900}
+.brand h1 span.g{color:var(--green)} .brand h1 span.y{color:var(--yellow)}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin:20px 0 8px;font-weight:700}
+.row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.pchip{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:var(--panel);border:2px solid var(--line);font-weight:700}
+.pchip.on{border-color:var(--gold);background:#2a2610}
+.pchip small{color:var(--muted);font-weight:600}
+.pchip.add{color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;display:block;width:100%;text-align:left}
+.card h3{font-size:19px;margin-bottom:4px}
+.card p{margin:0;color:var(--muted);font-size:14px;line-height:1.4}
+.meta{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.badge{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;border-radius:8px;background:var(--panel2);color:var(--muted)}
+.badge.kid{background:#173b5c;color:#9ed0ff}.badge.beg{background:#163d22;color:#8ff0ae}.badge.int{background:#4a3b0c;color:#ffd970}.badge.pro{background:#4d1616;color:#ff9e9e}.badge.any{background:#2c2350;color:#c9b8ff}
+.badge.fit{background:var(--gold);color:#1a1400}
+.hist{font-size:14px;color:var(--muted);padding:10px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:14px;font-weight:800;font-size:17px;background:var(--panel2);border:1px solid var(--line)}
+.btn.main{background:var(--gold);color:#161100;border:0}
+.btn.go{background:var(--green);color:#04210f;border:0}
+.btn.danger{background:#3a1515;color:#ffb3b3;border-color:#5a2222}
+.btn.sm{padding:9px 12px;font-size:14px;border-radius:11px}
+.btn.on{outline:2px solid var(--gold)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:700}
+.field input[type=text],.field select{width:100%;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:17px}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{flex:1;padding:11px 6px;font-weight:700;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--gold);color:#161100}
+input[type=range]{width:100%}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.topbar h2{font-size:22px;flex:1}
+/* camera stage */
+#stage{position:fixed;inset:0;background:#000;display:none;z-index:1;align-items:center;justify-content:center}
+#stage.on{display:flex}
+#frame{position:relative;transform:scaleX(-1)}
+#frame video,#frame canvas{position:absolute;inset:0;width:100%;height:100%}
+#frame video{object-fit:fill}
+#mask{opacity:.7;image-rendering:pixelated;display:none}
+#mask.on{display:block}
+.overlay{background:transparent;pointer-events:none}
+.overlay .pe{pointer-events:auto}
+/* setup */
+#setupPanel{position:absolute;left:0;right:0;bottom:0;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);background:linear-gradient(transparent,rgba(5,12,8,.92) 22%);}
+#setupPanel .inner{max-width:640px;margin:0 auto}
+#setupPanel h2{font-size:22px;margin-bottom:6px}
+#setupPanel ul{margin:6px 0 10px;padding-left:18px;color:#d5e2da;font-size:14px;line-height:1.5}
+.status{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.pill{padding:7px 11px;border-radius:999px;font-size:13px;font-weight:800;background:rgba(0,0,0,.55);border:1px solid #3a4d42}
+.pill.okG{border-color:var(--green);color:var(--green)}.pill.okY{border-color:var(--yellow);color:var(--yellow)}
+.pill.warn{border-color:var(--gold);color:var(--gold)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 auto}
+#tapHint{position:absolute;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+/* workout HUD */
+#hudTop{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 14px 24px;background:linear-gradient(rgba(0,0,0,.75),transparent);text-align:center}
+#hudRound{font-size:13px;font-weight:800;letter-spacing:2px;color:var(--gold)}
+#hudTime{font-size:56px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.05;text-shadow:0 2px 10px #000}
+#hudBlock{font-size:16px;font-weight:700;color:#e8efe9}
+#hudGloves{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:14px;display:flex;gap:6px}
+.gdot{width:14px;height:14px;border-radius:50%;border:2px solid #fff3;opacity:.25}
+.gdot.g{background:var(--green)}.gdot.y{background:var(--yellow)}.gdot.on{opacity:1}
+#hudCall{position:absolute;left:0;right:0;top:40%;transform:translateY(-50%);display:flex;justify-content:center;flex-wrap:wrap;gap:10px;padding:0 10px}
+.chip{min-width:74px;padding:10px 12px;border-radius:18px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .15s,opacity .2s}
+.chip b{display:block;font-size:34px;font-weight:900;line-height:1}
+.chip small{display:block;font-size:13px;font-weight:800;margin-top:4px;opacity:.75;text-transform:uppercase}
+.chip.g{background:var(--green);color:#03250f}.chip.y{background:var(--yellow);color:#2a2700}
+.chip.def{background:#e9eef0;color:#1d2a30}
+.chip.hit{transform:scale(.88);opacity:.45}
+.chip.kidsz b{font-size:30px}
+#hudBig{position:absolute;left:0;right:0;top:40%;transform:translateY(-50%);text-align:center;font-size:44px;font-weight:900;text-shadow:0 3px 16px #000;padding:0 16px}
+#hudBig small{display:block;font-size:18px;font-weight:700;color:#dfe9e3;margin-top:6px}
+#hudFeed{position:absolute;left:0;right:0;top:58%;text-align:center;font-size:30px;font-weight:900;text-shadow:0 3px 12px #000;transition:opacity .3s}
+#hudFeed small{display:block;font-size:15px;font-weight:700;color:#fff;opacity:.9}
+.fp{color:var(--gold)}.fg{color:var(--green)}.fm{color:var(--red)}
+#hudBottom{position:absolute;left:0;right:0;bottom:0;padding:24px 12px calc(env(safe-area-inset-bottom) + 12px);background:linear-gradient(transparent,rgba(0,0,0,.8))}
+.stats{display:flex;justify-content:space-around;max-width:560px;margin:0 auto 10px}
+.stat{text-align:center}
+.stat b{display:block;font-size:26px;font-weight:900;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:#c5d4cb;letter-spacing:1px;font-weight:800;text-transform:uppercase}
+.ctl{display:flex;gap:10px;justify-content:center}
+.ctl .btn{min-width:120px;background:rgba(20,30,25,.85)}
+/* results */
+.stars{font-size:56px;text-align:center;letter-spacing:6px;margin:8px 0}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center}
+.tile b{display:block;font-size:30px;font-weight:900}
+.tile span{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.bar{height:12px;border-radius:6px;background:var(--panel2);overflow:hidden;display:flex;margin:6px 0 2px}
+.bar i{display:block;height:100%}
+.note{font-size:13px;color:var(--muted);line-height:1.45}
+.mv{display:flex;gap:14px;align-items:flex-start}
+.mvstage{flex:0 0 112px;height:92px;border-radius:14px;background:#0a1510;border:1px solid var(--line);position:relative;overflow:hidden}
+.mvstage .hd{position:absolute;left:44px;top:10px;width:24px;height:24px;border-radius:50%;background:#c79a78}
+.mvstage .gl{position:absolute;top:44px;width:26px;height:26px;border-radius:50%;border:2px solid #0008}
+.mvstage .gl.G{left:26px;background:var(--green)}.mvstage .gl.Y{left:60px;background:var(--yellow)}
+.mvstage .dim{opacity:.35}
+.a-straight{animation:aS 1.6s ease-in-out infinite}
+.a-hookL{animation:aHL 1.6s ease-in-out infinite}.a-hookR{animation:aHR 1.6s ease-in-out infinite}
+.a-upper{animation:aU 1.6s ease-in-out infinite}
+.a-slipL{animation:aSL 1.8s ease-in-out infinite}.a-slipR{animation:aSR 1.8s ease-in-out infinite}
+.a-roll{animation:aR 2s ease-in-out infinite}
+@keyframes aS{0%,35%,100%{transform:scale(1)}15%{transform:scale(1.9)}}
+@keyframes aHL{0%,40%,100%{transform:none}18%{transform:translate(30px,-8px)}}
+@keyframes aHR{0%,40%,100%{transform:none}18%{transform:translate(-30px,-8px)}}
+@keyframes aU{0%,40%,100%{transform:none}18%{transform:translateY(-30px)}}
+@keyframes aSL{0%,50%,100%{transform:none}22%{transform:translateX(-18px)}}
+@keyframes aSR{0%,50%,100%{transform:none}22%{transform:translateX(18px)}}
+@keyframes aR{0%,100%{transform:none}25%{transform:translate(-16px,22px)}50%{transform:translate(0,30px)}75%{transform:translate(16px,22px)}}
+.mvtxt{flex:1;min-width:0}
+.mvtxt h3{display:flex;align-items:center;gap:8px;font-size:19px}
+.num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;font-weight:900}
+.num.g{background:var(--green);color:#03250f}.num.y{background:var(--yellow);color:#2a2700}.num.w{background:#e9eef0;color:#1d2a30}
+.who{font-size:13px;font-weight:800;margin:2px 0 6px}
+.mvtxt ol{margin:6px 0 0;padding-left:18px;color:#d5e2da;font-size:14px;line-height:1.45}
+.tip{margin-top:6px;font-size:13px;color:var(--gold)}
+.kidline{font-size:16px;line-height:1.4;color:#eef5f0;margin:4px 0 0}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 30px);transform:translateX(-50%) translateY(30px);background:#000d;border:1px solid var(--gold);padding:10px 16px;border-radius:12px;font-weight:700;opacity:0;transition:.25s;z-index:9;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#paused{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;pointer-events:auto}
+#paused.on{display:flex}
+#paused h2{font-size:40px}
+</style>
+</head>
+<body>
+
+<!-- Camera stage (shared by setup + workout) -->
+<div id="stage"><div id="frame"><video id="video" playsinline muted autoplay></video><canvas id="mask"></canvas><canvas id="ov"></canvas></div></div>
+
+<!-- HOME -->
+<section id="home" class="screen active"><div class="scroll">
+  <div class="brand"><img src="icon.png" alt="" onerror="this.style.display='none'"><div><h1>GLOVE <span class="g">U</span><span class="y">P</span></h1><p>Box along with your coach · green = left, yellow = right</p></div></div>
+  <div class="label">Who's boxing?</div>
+  <div class="row" id="profiles"></div>
+  <div class="label">Workouts</div>
+  <div id="workouts"></div>
+  <div class="label">Recent</div>
+  <div id="recent" class="card"></div>
+  <div class="label">Learn</div>
+  <button class="card" id="openMoves"><div class="meta"><span class="badge any">Guide</span></div><h3>🥋 Learn the moves</h3><p>How to throw every punch, slip and roll — with animations, matched to each boxer's stance (orthodox or southpaw).</p></button>
+  <div class="label">How the numbers work</div>
+  <div class="card"><p><b style="color:var(--green)">1</b> jab · <b style="color:var(--yellow)">2</b> cross · <b style="color:var(--green)">3</b> lead hook · <b style="color:var(--yellow)">4</b> rear hook · <b style="color:var(--green)">5</b> lead uppercut · <b style="color:var(--yellow)">6</b> rear uppercut. "b" means to the body. Odd numbers are your lead hand, even numbers are your rear hand.</p></div>
+</div></section>
+
+<!-- PROFILE EDIT -->
+<section id="profile" class="screen"><div class="scroll">
+  <div class="topbar"><button class="btn sm" data-go="home">← Back</button><h2 id="pTitle">Boxer</h2></div>
+  <div class="field"><label>Name</label><input type="text" id="pName" maxlength="16"></div>
+  <div class="field"><label>Emoji</label><input type="text" id="pEmoji" maxlength="4"></div>
+  <div class="field"><label>Level (sets combos + callout speed)</label><div class="seg" id="pLevel"></div></div>
+  <div class="field"><label>Stance</label><div class="seg" id="pStance"></div></div>
+  <div class="field"><label>Coach calls</label><div class="seg" id="pCalls"></div></div>
+  <div class="field"><label>Callout speed <span id="pPaceV"></span></label><input type="range" id="pPace" min="0.7" max="1.5" step="0.05"><div class="note">Left = faster, right = more time between combos.</div></div>
+  <div class="field"><label>Punch sensitivity <span id="pSensV"></span></label><input type="range" id="pSens" min="0.6" max="1.6" step="0.05"><div class="note">Raise it if punches aren't counted. Lower it if it counts punches you didn't throw.</div></div>
+  <div class="field"><label>Coach voice</label><div class="seg" id="pVoice"></div></div>
+  <div class="btnrow"><button class="btn main" id="pSave">Save</button><button class="btn danger" id="pDel">Delete boxer</button></div>
+  <div class="label">Glove colors</div>
+  <div class="card"><p>Colors tune themselves when you tap a glove on the camera screen. If tracking acts weird, reset them here.</p><div style="margin-top:10px"><button class="btn sm" id="resetColors">Reset glove colors</button></div></div>
+</div></section>
+
+<!-- SETUP -->
+<section id="setup" class="screen overlay">
+  <div id="tapHint">Tap a glove on screen to tune its color</div>
+  <div id="setupPanel" class="pe"><div class="inner">
+    <h2 id="sTitle">Workout</h2>
+    <ul>
+      <li>Prop the phone up at chest height, <b>6–8 ft away</b>.</li>
+      <li>Gloves up in guard: <b style="color:var(--green)">green on left</b>, <b style="color:var(--yellow)">yellow on right</b>.</li>
+      <li>Avoid green or yellow shirts, and keep the room bright.</li>
+    </ul>
+    <div class="status" id="sStatus"></div>
+    <div class="btnrow" style="margin-bottom:8px">
+      <button class="btn sm" id="tMask">Show color mask</button>
+      <button class="btn sm" id="tCam">Tracking: ON</button>
+    </div>
+    <div class="btnrow"><button class="btn" data-go="home" id="sBack">Back</button><button class="btn go" id="sStart">Start ▶</button></div>
+  </div></div>
+</section>
+
+<!-- WORKOUT -->
+<section id="workout" class="screen overlay">
+  <div id="hudTop"><div id="hudRound"></div><div id="hudTime">0:00</div><div id="hudBlock"></div></div>
+  <div id="hudGloves"><div class="gdot g" id="dotG"></div><div class="gdot y" id="dotY"></div></div>
+  <div id="hudCall"></div>
+  <div id="hudBig"></div>
+  <div id="hudFeed"></div>
+  <div id="hudBottom" class="pe">
+    <div class="stats">
+      <div class="stat"><b id="stP">0</b><span>Punches</span></div>
+      <div class="stat"><b id="stR">0</b><span>Per min</span></div>
+      <div class="stat"><b id="stS">0</b><span>Score</span></div>
+      <div class="stat"><b id="stK">0</b><span>🔥 Streak</span></div>
+    </div>
+    <div class="ctl"><button class="btn" id="bPause">❚❚ Pause</button><button class="btn" id="bEnd">■ End</button></div>
+  </div>
+  <div id="paused"><h2>Paused</h2><button class="btn go" id="bResume">▶ Resume</button><button class="btn" id="bQuit">End workout</button></div>
+</section>
+
+<!-- RESULTS -->
+<section id="moves" class="screen"><div class="scroll" id="movesBody"></div></section>
+<section id="results" class="screen"><div class="scroll" id="resBody"></div></section>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now = () => performance.now() / 1000;
+
+/* ================= DATA ================= */
+const LEVELS = {kid:'Kid', beg:'Beginner', int:'Intermediate', pro:'Pro'};
+const PACE = { // seconds per punch + recovery gap after a combo (multiplied by profile pace)
+  kid:{pp:0.95, gap:3.0, rate:0.95}, beg:{pp:0.7, gap:2.2, rate:1.05},
+  int:{pp:0.52, gap:1.6, rate:1.15}, pro:{pp:0.4, gap:1.1, rate:1.25}
+};
+const POOLS = {
+  kid:['1','2','1-1','1-2','1-2-1','1-1-2','2-1','3','1-3','1-2-3'],
+  beg:['1-2','1-1-2','1-2-1','1-2-3','2-3-2','1-2-3-2','3-2','1-6','1b-2','1-2-5-2','1-1-2-2'],
+  int:['1-2-3-2','1-1-2-3','1-2-5-2','1-6-3-2','3-4-3','1-2-3-4','5-6-3-2','1-2-slip-2','1b-2-3','2-3-2-5','1-2-roll-3-2','3b-3-2'],
+  pro:['1-2-3-2-3','1-1-2-3-4','1-2-5-6-3-2','1-2-roll-3-2','1-2-3b-3-2','2-3-2-5','1-6-3-2-1','1-2-slip-2-3-2','5-6-5-6-3-2','1-1b-2-3-2','3-4-roll-4-3','1-2-3-2-roll-2-3-2']
+};
+const TYPE = {1:'straight',2:'straight',3:'hook',4:'hook',5:'upper',6:'upper'};
+const NAME = {1:'jab',2:'cross',3:'hook',4:'hook',5:'uppercut',6:'uppercut'};
+const SHORT = {1:'JAB',2:'CROSS',3:'HOOK',4:'HOOK',5:'UPPER',6:'UPPER'};
+const NUMW = ['zero','one','two','three','four','five','six'];
+const DEFS = {slip:'slip', roll:'roll', duck:'duck', pull:'pull back'};
+
+const D = (combo, dur) => ({k:'drill', combo, dur});
+const R = (dur, pool) => ({k:'random', pool, dur});
+const F = (dur, int, label) => ({k:'free', int, dur, label});
+const M = (name, dur) => ({k:'move', name, dur});
+const rep = (n, blocks) => Array.from({length:n}, () => blocks.map(b => ({...b})));
+
+const WORKOUTS = [
+  {id:'little-champ', name:'Little Champ', level:'kid', desc:'Learn the jab and the cross. Short, fun, lots of stars.',
+   warm:[M('Bounce on your toes!',20)], rounds:rep(3,[D('1',20),D('1-2',20),R(20,'kid')]), rest:30},
+  {id:'fast-hands', name:'Fast Hands', level:'kid', desc:'Quick punches, a hook, and jumping jacks.',
+   warm:[M('Arm circles',20)], rounds:rep(3,[D('1-1-2',20),D('1-2-3',20),F(15,'burnout','Fast hands! Go go go!'),M('Jumping jacks',15)]), rest:30},
+  {id:'jab-cross', name:'Jab & Cross Basics', level:'beg', desc:'4 rounds of the two straight punches, ending each round with power punches.',
+   warm:[M('Arm circles',20),F(30,'coast','Easy shadowboxing')], rounds:rep(4,[D('1',30),D('1-2',30),D('1-1-2',30),F(30,'power','Power punches!')]), rest:60},
+  {id:'builder', name:'Combo Builder', level:'beg', desc:'Start with a jab and build up to a 4-punch combo, then do random callouts.',
+   warm:[M('Bounce and loosen up',30)], rounds:[
+     [D('1',30),D('1-2',30),F(30,'coast','Easy pace'),D('1-2',30)],
+     [D('1-2',30),D('1-2-3',30),F(30,'power','Power!'),D('1-2-3',30)],
+     [D('1-2-3',30),D('1-2-3-2',30),F(30,'power','Power!'),D('1-2-3-2',30)],
+     [R(60),F(30,'burnout','Burnout! Everything you got'),M('Plank',30)]], rest:60},
+  {id:'hooks-uppers', name:'Hooks & Uppercuts', level:'int', desc:'Power punches inside, built into real combos.',
+   warm:[M('Torso twists',30),F(30,'coast','Shadowbox easy')], rounds:[
+     [D('3-4',30),D('1-2-3',30),D('5-6',30),F(30,'power','Power hooks')],
+     [D('1-2-3-2',30),D('1-6-3-2',30),D('3-4-3',30),F(30,'burnout','Burnout!')],
+     [D('5-6-3-2',40),D('1-2-5-2',40),R(40)],
+     [R(90),F(30,'burnout','Burnout! Empty the tank')]], rest:60},
+  {id:'combos-core', name:'Combos & Core', level:'int', desc:'Combos, then a core move every round.',
+   warm:[M('Jumping jacks',30)], rounds:['1-2-3-2','1-6-3-2','3-2-3','1-2-5-2','1-1-2-3'].map((c,i)=>[R(45),D(c,45),M(['Plank','Squats',"Boxer's twist",'Push-ups','Lunges'][i],30)]), rest:45},
+  {id:'callouts', name:'Callout Rounds', level:'any', desc:'3 × 3:00 of random combos at your level with a burnout finish.',
+   rounds:rep(3,[R(150),F(30,'burnout','Burnout!')]), rest:60},
+  {id:'fight-night', name:'Fight Night', level:'pro', desc:'6 × 3:00 pro rounds with long combos, defense and burnouts.',
+   rounds:rep(6,[R(150,'pro'),F(30,'burnout','Burnout!')]), rest:60},
+];
+
+function parseCombo(str){
+  return str.split('-').map(tok => { const m = tok.match(/^([1-6])(b?)$/); return m ? {n:+m[1], body:!!m[2]} : {def:tok}; });
+}
+const leadHand = p => p.stance === 'southpaw' ? 'R' : 'L';
+const handFor = (n, p) => (n % 2 === 1) ? leadHand(p) : (leadHand(p) === 'L' ? 'R' : 'L');
+const gloveName = h => h === 'L' ? 'GREEN' : 'YELLOW';
+
+function sayCombo(c, p){
+  return c.map(x => {
+    if (x.def) return DEFS[x.def] || x.def;
+    if (p.calls === 'numbers') return NUMW[x.n] + (x.body ? ' body' : '');
+    const h = handFor(x.n, p);
+    const w = x.n <= 2 ? NAME[x.n] : (h === 'L' ? 'left ' : 'right ') + NAME[x.n];
+    return w + (x.body ? ' to the body' : '');
+  }).join(', ');
+}
+
+/* ================= STATE ================= */
+const DEFAULT_COLORS = { green:{h:140, hr:30, smin:0.35, vmin:0.22}, yellow:{h:58, hr:13, smin:0.42, vmin:0.40} };
+const newProfile = (o={}) => ({id:'p'+Math.random().toString(36).slice(2,8), name:'Boxer', emoji:'🥊', level:'beg', stance:'orthodox', calls:'names', pace:1, sens:1, voice:true, ...o});
+const KEY = 'gloveup.v1';
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
+if (!S || !S.profiles) S = {
+  profiles:[newProfile({id:'rico',name:'Rico',emoji:'🚀',level:'kid'}), newProfile({id:'lana',name:'Lana',emoji:'👼',level:'beg'}), newProfile({id:'dad',name:'Dad',emoji:'🥊',level:'int',calls:'numbers'}), newProfile({id:'mom',name:'Mom',emoji:'💪',level:'beg'}), newProfile({id:'kyla',name:'Kyla',emoji:'🎀',level:'kid',pace:1.5,sens:1.4})], seeded:2,
+  active:'dad', colors:JSON.parse(JSON.stringify(DEFAULT_COLORS)), history:[]
+};
+if (!S.seeded || S.seeded < 2) { // add Mom + Kyla for existing installs
+  if (!S.profiles.some(p => p.id === 'mom')) S.profiles.push(newProfile({id:'mom',name:'Mom',emoji:'💪',level:'beg'}));
+  if (!S.profiles.some(p => p.id === 'kyla')) S.profiles.push(newProfile({id:'kyla',name:'Kyla',emoji:'🎀',level:'kid',pace:1.5,sens:1.4}));
+  S.seeded = 2; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {}
+}
+if (!S.colors) S.colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} };
+const prof = () => S.profiles.find(p => p.id === S.active) || S.profiles[0];
+
+/* ================= UI helpers ================= */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+  const camScreens = id === 'setup' || id === 'workout';
+  $('#stage').classList.toggle('on', camScreens && camOn);
+  if (id === 'home') renderHome();
+}
+document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { if (g.dataset.go === 'home') stopCamera(); show(g.dataset.go); } });
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); }
+const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+
+function workoutSecs(w){ return buildSegs(w).reduce((a,s) => a + s.dur, 0); }
+function fits(w, p){ return w.level === 'any' || w.level === p.level; }
+
+function renderHome(){
+  const p = prof();
+  $('#profiles').innerHTML = S.profiles.map(x => `<button class="pchip ${x.id===p.id?'on':''}" data-pid="${x.id}">${esc(x.emoji)} ${esc(x.name)} <small>${LEVELS[x.level]}</small></button>`).join('')
+    + `<button class="pchip" data-edit="1">⚙︎ Edit ${esc(p.name)}</button><button class="pchip add" data-add="1">＋ Add</button>`;
+  const order = {kid:0,beg:1,int:2,pro:3,any:4};
+  const list = [...WORKOUTS].sort((a,b) => (fits(b,p)-fits(a,p)) || (order[a.level]-order[b.level]));
+  $('#workouts').innerHTML = list.map(w => {
+    const best = S.history.filter(h => h.pid===p.id && h.wid===w.id).sort((a,b)=>b.score-a.score)[0];
+    return `<button class="card" data-wid="${w.id}"><div class="meta"><span class="badge ${w.level}">${w.level==='any'?'Any level':LEVELS[w.level]}</span><span class="badge">${Math.round(workoutSecs(w)/60)} min</span><span class="badge">${w.rounds.length} rounds</span>${fits(w,p)?'<span class="badge fit">For '+esc(p.name)+'</span>':''}</div><h3>${esc(w.name)}</h3><p>${esc(w.desc)}${best?` <br><b style="color:var(--gold)">Best: ${best.score} pts · ${best.punches} punches</b>`:''}</p></button>`;
+  }).join('');
+  const hist = S.history.filter(h => h.pid === p.id).slice(-6).reverse();
+  $('#recent').innerHTML = hist.length ? hist.map(h => `<div class="hist"><span>${new Date(h.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${esc(h.wname)}</span><span>${h.cam?'⭐'.repeat(h.stars)+' · ':''}${h.punches} punches</span></div>`).join('') : `<p>No workouts yet for ${esc(p.name)}. Pick one above.</p>`;
+}
+$('#profiles').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.pid) { S.active = b.dataset.pid; save(); renderHome(); }
+  else if (b.dataset.edit) openProfile(prof());
+  else if (b.dataset.add) { const np = newProfile(); S.profiles.push(np); S.active = np.id; save(); openProfile(np); }
+});
+/* ----- moves guide ----- */
+const MOVES = [
+  {id:'guard', title:'Guard stance', anim:null,
+   steps:s => [`Feet shoulder-width apart, ${s.leadSide} foot forward, toes angled slightly in.`, 'Knees soft, weight on the balls of your feet.', 'Gloves up by your cheeks, elbows tucked to your ribs, chin down.', `Your ${s.leadGlove} glove is in front (lead). Your ${s.rearGlove} glove stays by your chin (rear).`],
+   tip:'Every punch starts from here and comes right back here.',
+   kid:s => `Feet apart, ${s.leadSide} foot in front. Gloves up by your cheeks like you're hiding behind them!`},
+  {n:1, title:'Jab', anim:'straight', hand:'lead',
+   steps:s => [`Shoot your ${s.leadGlove} glove straight out from your chin.`, 'Turn your fist palm-down just as your arm straightens.', 'Snap it straight back to your cheek, as fast as it went out.', `Your ${s.rearGlove} glove stays home by your chin.`],
+   tip:'Fast and light. The jab is your measuring stick, not your power shot.',
+   kid:s => `Quick punch straight out with your ${s.leadGlove} glove, then back to your cheek!`},
+  {n:2, title:'Cross', anim:'straight', hand:'rear',
+   steps:s => [`Throw your ${s.rearGlove} glove straight out from your chin.`, `Pivot your ${s.rearSide} (back) foot: heel turns out like squishing a bug.`, 'Turn your hips and shoulders into it. That is where the power comes from.', `Bring it back to your chin. Keep your ${s.leadGlove} glove up.`],
+   tip:"Don't lean forward past your front knee.",
+   kid:s => `Big straight punch with your ${s.rearGlove} glove. Twist your back foot like squishing a bug!`},
+  {n:3, title:'Lead hook', anim:'hook', hand:'lead',
+   steps:s => [`Lift your ${s.leadGlove} elbow to shoulder height, arm bent like an L.`, `Turn your ${s.leadSide} foot and hips, and swing the glove across in front of you.`, "Stop at the middle. Don't swing wide past your face.", 'Snap back to guard.'],
+   tip:'The arm stays locked in the L shape. Your body turns, not your arm.',
+   kid:s => `Make an L with your ${s.leadGlove} arm and swing it across like a door closing!`},
+  {n:4, title:'Rear hook', anim:'hook', hand:'rear',
+   steps:s => [`Lift your ${s.rearGlove} elbow to shoulder height, arm bent like an L.`, `Pivot your ${s.rearSide} foot and turn your hips toward the middle.`, 'Swing across and stop at the center line.', 'Back to guard.'],
+   tip:'A shorter, tighter swing is faster and safer than a big wide one.',
+   kid:s => `L-arm with your ${s.rearGlove} glove, and twist your body to swing it across!`},
+  {n:5, title:'Lead uppercut', anim:'upper', hand:'lead',
+   steps:s => [`Dip a little toward your ${s.leadSide} side by bending your knees.`, `Drive up from your legs and bring your ${s.leadGlove} glove up, palm facing you.`, 'Stop at chin height, like hitting under a chin.', 'Back to guard.'],
+   tip:"Don't drop your hand way down first. Bend your knees instead.",
+   kid:s => `Bend your knees, then pop your ${s.leadGlove} glove UP like a rocket!`},
+  {n:6, title:'Rear uppercut', anim:'upper', hand:'rear',
+   steps:s => [`Dip toward your ${s.rearSide} side by bending your knees.`, `Turn your hips and drive your ${s.rearGlove} glove up, palm facing you.`, 'Stop at chin height.', 'Back to guard.'],
+   tip:'The power comes from your legs and hips turning up.',
+   kid:s => `Bend down a little, then blast your ${s.rearGlove} glove UP!`},
+  {id:'body', title:'Body shots ("b")', anim:'straight', hand:'lead', badge:'b',
+   steps:s => ['When the call says "body" (like 1b), aim at belly height instead of the head.', 'Bend your knees to drop your level. Don\'t just lower your arm.', 'Your other glove stays up by your chin.'],
+   tip:'Bend the knees, keep your back straight.',
+   kid:s => 'Body means bend your knees and punch at belly height!'},
+  {id:'slip', title:'Slip', anim:'slip', badge:'↯',
+   steps:s => ['Move your head just off the center line, about one head-width.', `Turn your shoulders and bend your knees a little. Slip to your ${s.leadSide} side to slip a straight punch.`, 'Keep both gloves up the whole time.', 'Come right back to center, ready to punch.'],
+   tip:'A small movement is enough. Your eyes stay forward.',
+   kid:s => 'Move your head a little to the side like a punch is coming. Dodge!'},
+  {id:'roll', title:'Roll', anim:'roll', badge:'⤵',
+   steps:s => ['Bend your knees and move your head in a U shape, under an imaginary hook.', 'Go down on one side and come up on the other.', 'Gloves stay up by your face.', 'Come up ready to throw. A hook or cross right after a roll is classic.'],
+   tip:'Bend your legs, not your back. Keep your eyes forward.',
+   kid:s => 'Squat down and make a smile shape with your head — under and up!'},
+];
+let mvStance = null;
+function stanceInfo(st){
+  const sp = st === 'southpaw';
+  return {leadSide:sp ? 'right' : 'left', rearSide:sp ? 'left' : 'right', leadGlove:sp ? 'yellow (right)' : 'green (left)', rearGlove:sp ? 'green (left)' : 'yellow (right)', leadCode:sp ? 'Y' : 'G', rearCode:sp ? 'G' : 'Y'};
+}
+function moveSpeech(m, si, kid){ return m.title + '. ' + (kid ? m.kid(si) : m.steps(si).join(' ')); }
+function renderMoves(){
+  const p = prof(), st = mvStance || p.stance, si = stanceInfo(st), kid = p.level === 'kid';
+  const body = MOVES.map((m, i) => {
+    const code = m.hand === 'lead' ? si.leadCode : m.hand === 'rear' ? si.rearCode : null;
+    let gG = '', gY = '', hd = '';
+    if (m.anim === 'slip') hd = 'a-slip' + (si.leadSide === 'left' ? 'L' : 'R');
+    else if (m.anim === 'roll') hd = 'a-roll';
+    else if (m.anim) { const a = m.anim === 'hook' ? 'a-hook' + (code === 'G' ? 'L' : 'R') : 'a-' + m.anim; if (code === 'G') { gG = a; gY = 'dim'; } else { gY = a; gG = 'dim'; } }
+    const stage = `<div class="mvstage"><div class="hd ${hd}"></div><div class="gl G ${gG}"></div><div class="gl Y ${gY}"></div></div>`;
+    const numCls = code === 'G' ? 'g' : code === 'Y' ? 'y' : 'w';
+    const badge = m.n ? `<span class="num ${numCls}">${m.n}</span>` : m.badge ? `<span class="num w">${esc(m.badge)}</span>` : '';
+    const who = m.hand ? `<div class="who" style="color:${code === 'G' ? 'var(--green)' : 'var(--yellow)'}">${m.hand === 'lead' ? 'Lead hand' : 'Rear hand'} · ${code === 'G' ? 'GREEN glove' : 'YELLOW glove'}</div>` : '';
+    const txt = kid ? `<p class="kidline">${esc(m.kid(si))}</p>` : `<ol>${m.steps(si).map(x => `<li>${esc(x)}</li>`).join('')}</ol><div class="tip">💡 ${esc(m.tip)}</div>`;
+    return `<div class="card"><div class="mv">${stage}<div class="mvtxt"><h3>${badge}${esc(m.title)}</h3>${who}${txt}<div style="margin-top:10px"><button class="btn sm" data-say="${i}">🔊 Hear it</button></div></div></div></div>`;
+  }).join('');
+  $('#movesBody').innerHTML = `
+    <div class="topbar"><button class="btn sm" data-go="home">← Back</button><h2>Learn the moves</h2></div>
+    <div class="field"><label>Showing for</label><div class="seg" id="mvSt"></div></div>
+    <div class="card"><p>${st === 'southpaw'
+      ? '<b>Southpaw</b> = right foot and <b style="color:var(--yellow)">yellow glove</b> in front. The numbers mean the same thing (1 is always the jab, from the front hand), but your gloves switch: odd numbers = <b style="color:var(--yellow)">yellow</b>, even numbers = <b style="color:var(--green)">green</b>. Lefties often box this way.'
+      : '<b>Orthodox</b> = left foot and <b style="color:var(--green)">green glove</b> in front. Odd numbers (1, 3, 5) are the <b style="color:var(--green)">green</b> lead hand, even numbers (2, 4, 6) are the <b style="color:var(--yellow)">yellow</b> rear hand. Most right-handers box this way.'}
+      The animations show what the camera sees, like a mirror.</p></div>
+    ${body}`;
+  segCtl($('#mvSt'), [['orthodox','Orthodox (green leads)'],['southpaw','Southpaw (yellow leads)']], st, v => { mvStance = v; renderMoves(); });
+}
+$('#openMoves').onclick = () => { mvStance = null; renderMoves(); show('moves'); };
+$('#movesBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-say]'); if (!b) return;
+  const p = prof(), si = stanceInfo(mvStance || p.stance);
+  speak(moveSpeech(MOVES[+b.dataset.say], si, p.level === 'kid'), p.level === 'kid' ? 0.95 : 1.0, true);
+});
+
+$('#workouts').addEventListener('click', e => { const b = e.target.closest('[data-wid]'); if (b) openSetup(WORKOUTS.find(w => w.id === b.dataset.wid)); });
+
+/* ----- profile editor ----- */
+let editP = null;
+function segCtl(el, opts, val, cb){
+  el.innerHTML = opts.map(([v,l]) => `<button data-v="${v}" class="${String(v)===String(val)?'on':''}">${l}</button>`).join('');
+  el.onclick = e => { const b = e.target.closest('button'); if (!b) return; el.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); cb(b.dataset.v); };
+}
+function openProfile(p){
+  editP = {...p};
+  $('#pTitle').textContent = p.name; $('#pName').value = p.name; $('#pEmoji').value = p.emoji;
+  segCtl($('#pLevel'), Object.entries(LEVELS), p.level, v => editP.level = v);
+  segCtl($('#pStance'), [['orthodox','Orthodox (left lead)'],['southpaw','Southpaw (right lead)']], p.stance, v => editP.stance = v);
+  segCtl($('#pCalls'), [['names','Names'],['numbers','Numbers']], p.calls, v => editP.calls = v);
+  segCtl($('#pVoice'), [['true','On'],['false','Off']], p.voice, v => editP.voice = v === 'true');
+  $('#pPace').value = p.pace; $('#pPaceV').textContent = '×' + (+p.pace).toFixed(2);
+  $('#pSens').value = p.sens; $('#pSensV').textContent = '×' + (+p.sens).toFixed(2);
+  $('#pDel').style.display = S.profiles.length > 1 ? '' : 'none';
+  show('profile');
+}
+$('#pPace').oninput = e => { editP.pace = +e.target.value; $('#pPaceV').textContent = '×' + editP.pace.toFixed(2); };
+$('#pSens').oninput = e => { editP.sens = +e.target.value; $('#pSensV').textContent = '×' + editP.sens.toFixed(2); };
+$('#pSave').onclick = () => {
+  editP.name = $('#pName').value.trim() || 'Boxer'; editP.emoji = $('#pEmoji').value.trim() || '🥊';
+  const i = S.profiles.findIndex(x => x.id === editP.id); S.profiles[i] = editP; save(); show('home');
+};
+$('#pDel').onclick = () => {
+  if (!confirm('Delete ' + editP.name + ' and their history?')) return;
+  S.profiles = S.profiles.filter(x => x.id !== editP.id); S.history = S.history.filter(h => h.pid !== editP.id);
+  S.active = S.profiles[0].id; save(); show('home');
+};
+$('#resetColors').onclick = () => { S.colors = JSON.parse(JSON.stringify(DEFAULT_COLORS)); save(); toast('Glove colors reset'); };
+
+/* ================= AUDIO + VOICE ================= */
+let AC = null;
+function ac(){ if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+function tone(f, dur, type='sine', vol=0.3, when=0){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t0 = a.currentTime + when;
+  o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+  o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+const bell = n => { for (let i = 0; i < n; i++) { tone(1180, 1.1, 'sine', 0.35, i*0.32); tone(2360, 0.5, 'sine', 0.1, i*0.32); } };
+const clack = () => { tone(2600, 0.04, 'square', 0.25); tone(2600, 0.04, 'square', 0.25, 0.14); };
+const beep = (hi) => tone(hi ? 1320 : 880, 0.16, 'square', 0.12);
+const sfx = {perfect(){ tone(1320,0.1,'triangle',0.22); tone(1760,0.16,'triangle',0.22,0.07); }, good(){ tone(990,0.12,'triangle',0.16); }, miss(){ tone(200,0.2,'sawtooth',0.06); }};
+
+let VOICE = null;
+function pickVoice(){
+  const vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  VOICE = vs.find(v => /en-US/i.test(v.lang) && /Samantha|Aaron|Nicky|Evan|Siri/i.test(v.name)) || vs.find(v => /en-US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+}
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text, rate, interrupt){
+  if (!window.speechSynthesis || (E && !E.p.voice)) return;
+  try {
+    if (interrupt && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); if (VOICE) u.voice = VOICE; u.rate = rate || 1.05; speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+/* ================= CAMERA + TRACKING ================= */
+const video = $('#video'), maskC = $('#mask'), ov = $('#ov'), frame = $('#frame');
+const proc = document.createElement('canvas');
+let pctx = null, octx = ov.getContext('2d'), mctx = maskC.getContext('2d');
+let stream = null, camOn = true, showMask = false, W = 0, H = 0, maskArr = null, maskImg = null, lastVT = -1, lastImg = null;
+const blobs = {L:{found:false}, R:{found:false}};
+const seen = {L:0, R:0};
+
+async function startCamera(){
+  if (stream) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Camera needs Safari over https'); return false; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30}}, audio:false});
+    video.srcObject = stream; await video.play().catch(()=>{});
+    if (!video.videoWidth) await new Promise(r => video.addEventListener('loadedmetadata', r, {once:true}));
+    setupDims(); return true;
+  } catch(e) { toast('Camera blocked — allow camera access for this site'); return false; }
+}
+function stopCamera(){ if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } }
+function setupDims(){
+  const vw = video.videoWidth, vh = video.videoHeight, k = 240 / Math.max(vw, vh);
+  W = Math.round(vw*k); H = Math.round(vh*k);
+  proc.width = W; proc.height = H; pctx = proc.getContext('2d', {willReadFrequently:true});
+  maskC.width = W; maskC.height = H; maskImg = mctx.createImageData(W, H); maskArr = new Uint8Array(W*H);
+  ov.width = W*3; ov.height = H*3; fitFrame();
+}
+function fitFrame(){
+  if (!video.videoWidth) return;
+  const ar = video.videoWidth / video.videoHeight, sw = innerWidth, sh = innerHeight;
+  let fw = sw, fh = sw / ar; if (fh > sh) { fh = sh; fw = sh * ar; }
+  frame.style.width = fw + 'px'; frame.style.height = fh + 'px';
+}
+addEventListener('resize', fitFrame);
+
+const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+function rgb2hsv(r, g, b){
+  const mx = r > g ? (r > b ? r : b) : (g > b ? g : b), mn = r < g ? (r < b ? r : b) : (g < b ? g : b), d = mx - mn;
+  let h = 0;
+  if (d) { if (mx === r) h = 60 * (((g - b) / d) % 6); else if (mx === g) h = 60 * ((b - r) / d + 2); else h = 60 * ((r - g) / d + 4); if (h < 0) h += 360; }
+  return [h, mx ? d / mx : 0, mx / 255];
+}
+
+function detect(d){
+  const cg = S.colors.green, cy = S.colors.yellow;
+  const vmin = Math.min(cg.vmin, cy.vmin) * 255;
+  let gn = 0, gx = 0, gy = 0, yn = 0, yx = 0, yy = 0;
+  for (let y = 0, i = 0, p = 0; y < H; y++) for (let x = 0; x < W; x++, i += 4, p++) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    maskArr[p] = 0;
+    if (mx < vmin) continue;
+    const [h, s, v] = rgb2hsv(r, g, b);
+    if (s >= cg.smin && v >= cg.vmin && hueDist(h, cg.h) <= cg.hr) { maskArr[p] = 1; gn++; gx += x; gy += y; }
+    else if (s >= cy.smin && v >= cy.vmin && hueDist(h, cy.h) <= cy.hr) { maskArr[p] = 2; yn++; yx += x; yy += y; }
+  }
+  blobs.L = refine(1, gn, gx, gy); blobs.R = refine(2, yn, yx, yy);
+}
+function refine(code, n, sx, sy){
+  const minPx = Math.max(12, W*H*0.0004);
+  if (n < minPx) return {found:false};
+  let cx = sx / n, cy = sy / n, cnt = n;
+  for (let it = 0; it < 2; it++) {
+    const rad = Math.min(Math.max(Math.sqrt(cnt) * 1.8, 6), Math.max(W, H) * 0.4);
+    const x0 = Math.max(0, cx - rad | 0), x1 = Math.min(W - 1, cx + rad | 0), y0 = Math.max(0, cy - rad | 0), y1 = Math.min(H - 1, cy + rad | 0);
+    let m = 0, mx = 0, my = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0, p = y*W + x0; x <= x1; x++, p++) if (maskArr[p] === code) { m++; mx += x; my += y; }
+    if (m < minPx) return {found:false};
+    cx = mx / m; cy = my / m; cnt = m;
+  }
+  return {found:true, x:cx, y:cy, a:cnt};
+}
+
+/* ----- punch detector (per glove) ----- */
+const mkDet = () => ({guard:null, state:'ready', lastSeen:-9, prev:null, peak:null, trigT:0, coolT:0, lastPunchT:-9, lastF:null});
+const det = {L:mkDet(), R:mkDet()};
+function thresholds(){ const s = (E ? E.p : prof()).sens || 1; return {r:1 + 0.45/s, dx:1.0/s, up:1.1/s, sp:1.1/s}; }
+
+function updDet(d, b, t, o, th){
+  if (!b.found) {
+    if (d.state === 'peak' && t - d.trigT > 0.06) return finalize(d, t, th);
+    if (t - d.lastSeen > 0.4) { d.guard = null; d.state = 'ready'; d.lastF = null; }
+    return null;
+  }
+  if (!d.guard || t - d.lastSeen > 0.4) { d.guard = {x:b.x, y:b.y, a:b.a}; d.lastSeen = t; d.prev = {x:b.x, y:b.y, t}; d.state = 'ready'; d.lastF = null; return null; }
+  d.lastSeen = t;
+  const s = Math.sqrt(d.guard.a);
+  const f = {r:b.a / d.guard.a, dx:(b.x - d.guard.x) / s, dy:(b.y - d.guard.y) / s};
+  const sp = Math.hypot(b.x - d.prev.x, b.y - d.prev.y) / s * (0.033 / Math.max(0.016, t - d.prev.t));
+  d.prev = {x:b.x, y:b.y, t};
+  let ev = null;
+  if (d.state === 'ready') {
+    const trig = f.r > th.r || Math.abs(f.dx) > th.dx || -f.dy > th.up || sp > th.sp;
+    if (trig && t - d.lastPunchT > 0.16) {
+      if (o.state === 'ready' && o.lastF && bodyMove(f, o.lastF, th)) { // whole body moved, not a punch
+        d.guard = {x:b.x, y:b.y, a:b.a}; if (o.prev) o.guard = {x:o.prev.x, y:o.prev.y, a:o.guard ? o.guard.a * (o.lastF.r || 1) : 1};
+      } else { d.state = 'peak'; d.trigT = t; d.peak = {r:f.r, dx:f.dx, up:-f.dy, sp}; }
+    } else if (sp < 0.35) {
+      const k = 0.06; d.guard.x += (b.x - d.guard.x)*k; d.guard.y += (b.y - d.guard.y)*k; d.guard.a += (b.a - d.guard.a)*k;
+    }
+  } else if (d.state === 'peak') {
+    const pk = d.peak;
+    pk.r = Math.max(pk.r, f.r); if (Math.abs(f.dx) > Math.abs(pk.dx)) pk.dx = f.dx; pk.up = Math.max(pk.up, -f.dy);
+    const falling = f.r < pk.r*0.85 + 0.15 && Math.abs(f.dx) < Math.abs(pk.dx)*0.85 + 0.1 && -f.dy < pk.up*0.85 + 0.1;
+    if ((falling && t - d.trigT > 0.05) || t - d.trigT > 0.26) ev = finalize(d, t, th);
+  } else if (d.state === 'cool') {
+    const back = f.r < 1 + (th.r - 1)*0.5 && Math.abs(f.dx) < th.dx*0.5 && -f.dy < th.up*0.5;
+    if (back) d.state = 'ready';
+    else if (t - d.coolT > 0.7) { d.state = 'ready'; d.guard = {x:b.x, y:b.y, a:b.a}; }
+  }
+  d.lastF = f;
+  return ev;
+}
+function bodyMove(f, of, th){
+  const sameSide = Math.abs(f.dx) > th.dx*0.9 && Math.abs(of.dx) > th.dx*0.6 && Math.sign(f.dx) === Math.sign(of.dx);
+  const bothGrow = f.r > th.r*0.95 && of.r > 1 + (th.r - 1)*0.6;
+  return sameSide || bothGrow;
+}
+function finalize(d, t, th){
+  const pk = d.peak;
+  const sc = {straight:(pk.r - 1)/(th.r - 1), hook:Math.abs(pk.dx)/th.dx, upper:pk.up/th.up};
+  let type = 'straight', best = sc.straight;
+  if (sc.hook > best) { type = 'hook'; best = sc.hook; }
+  if (sc.upper > best) { type = 'upper'; best = sc.upper; }
+  if (best < 0.8) type = 'straight'; // speed-only trigger
+  d.state = 'cool'; d.coolT = t; d.lastPunchT = d.trigT;
+  return {t:d.trigT, type};
+}
+
+const flash = {L:-9, R:-9};
+function processFrame(t){
+  if (!pctx || video.readyState < 2) return;
+  if (video.currentTime === lastVT) return;
+  lastVT = video.currentTime;
+  pctx.drawImage(video, 0, 0, W, H);
+  lastImg = pctx.getImageData(0, 0, W, H);
+  detect(lastImg.data);
+  const th = thresholds();
+  for (const h of ['L','R']) {
+    if (blobs[h].found) seen[h] = t;
+    const ev = updDet(det[h], blobs[h], t, det[h === 'L' ? 'R' : 'L'], th);
+    if (ev) { flash[h] = t; onPunch(h, ev.type, ev.t); }
+  }
+  drawOverlay(t);
+  if (showMask) drawMask();
+  if ($('#setup').classList.contains('active')) setupStatus(t);
+  $('#dotG').classList.toggle('on', blobs.L.found); $('#dotY').classList.toggle('on', blobs.R.found);
+}
+function drawOverlay(t){
+  const k = 3; octx.clearRect(0, 0, ov.width, ov.height);
+  for (const h of ['L','R']) {
+    const b = blobs[h], col = h === 'L' ? '#38d46c' : '#f0e637';
+    if (!b.found) continue;
+    const r = Math.sqrt(b.a / Math.PI) * k * 1.5;
+    octx.lineWidth = 5; octx.strokeStyle = col;
+    octx.beginPath(); octx.arc(b.x*k, b.y*k, r, 0, Math.PI*2); octx.stroke();
+    if (t - flash[h] < 0.25) { octx.fillStyle = col + '88'; octx.fill(); }
+    const g = det[h].guard;
+    if (g) { octx.setLineDash([6,6]); octx.lineWidth = 2; octx.strokeStyle = col + '99'; octx.beginPath(); octx.arc(g.x*k, g.y*k, Math.sqrt(g.a/Math.PI)*k, 0, Math.PI*2); octx.stroke(); octx.setLineDash([]); }
+    octx.save(); octx.translate(b.x*k, b.y*k - r - 10); octx.scale(-1, 1); octx.fillStyle = col; octx.font = 'bold 26px -apple-system,sans-serif'; octx.textAlign = 'center'; octx.fillText(h === 'L' ? 'LEFT' : 'RIGHT', 0, 0); octx.restore();
+  }
+}
+function drawMask(){
+  const md = maskImg.data;
+  for (let p = 0, i = 0; p < maskArr.length; p++, i += 4) {
+    const m = maskArr[p];
+    if (m === 1) { md[i]=0; md[i+1]=255; md[i+2]=90; md[i+3]=220; } else if (m === 2) { md[i]=255; md[i+1]=230; md[i+2]=0; md[i+3]=220; } else md[i+3] = 0;
+  }
+  mctx.putImageData(maskImg, 0, 0);
+}
+
+/* tap a glove to tune its color */
+frame.addEventListener('pointerdown', e => {
+  if (!$('#setup').classList.contains('active') || !lastImg) return;
+  const rc = frame.getBoundingClientRect();
+  const rx = Math.round((1 - (e.clientX - rc.left) / rc.width) * W), ry = Math.round((e.clientY - rc.top) / rc.height * H);
+  const hs = [], ss = [], vs = [], d = lastImg.data;
+  for (let y = ry - 3; y <= ry + 3; y++) for (let x = rx - 3; x <= rx + 3; x++) {
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const i = (y*W + x)*4, [h, s, v] = rgb2hsv(d[i], d[i+1], d[i+2]); hs.push(h); ss.push(s); vs.push(v);
+  }
+  if (!hs.length) return;
+  const med = a => a.slice().sort((p, q) => p - q)[a.length >> 1];
+  let sx = 0, sy = 0; hs.forEach(h => { sx += Math.cos(h*Math.PI/180); sy += Math.sin(h*Math.PI/180); });
+  let h = Math.atan2(sy, sx) * 180 / Math.PI; if (h < 0) h += 360;
+  const s = med(ss), v = med(vs);
+  if (s < 0.22) { toast("That doesn't look like a glove — tap right on it"); return; }
+  const which = hueDist(h, 58) < hueDist(h, 140) ? 'yellow' : 'green';
+  S.colors[which] = {h:Math.round(h), hr:which === 'yellow' ? 12 : 22, smin:+Math.max(0.22, s*0.55).toFixed(2), vmin:+Math.max(0.18, v*0.5).toFixed(2)};
+  save(); toast((which === 'green' ? '🟢 Green' : '🟡 Yellow') + ' glove tuned');
+});
+
+/* ================= SETUP ================= */
+let curW = null, readySince = 0;
+async function openSetup(w){
+  curW = w; ac(); // unlock audio on tap
+  $('#sTitle').textContent = w.name + ' · ' + Math.round(workoutSecs(w)/60) + ' min';
+  $('#tCam').textContent = 'Tracking: ' + (camOn ? 'ON' : 'OFF');
+  $('#tapHint').style.display = camOn ? '' : 'none';
+  show('setup');
+  if (camOn) { const ok = await startCamera(); if (!ok) { camOn = false; $('#tCam').textContent = 'Tracking: OFF'; show('setup'); } }
+  setupStatus(now());
+}
+function setupStatus(t){
+  if (!camOn) { $('#sStatus').innerHTML = `<span class="pill warn">Tracking off — coach callouts only (good for heavy bag work)</span>`; return; }
+  const gOk = t - seen.L < 0.3, yOk = t - seen.R < 0.3;
+  let dist = '';
+  if (gOk && yOk) {
+    const sz = (Math.sqrt(blobs.L.a || 0) + Math.sqrt(blobs.R.a || 0)) / 2 / Math.max(W, H);
+    dist = sz > 0.13 ? '<span class="pill warn">Step back a bit</span>' : sz < 0.035 ? '<span class="pill warn">Come a little closer</span>' : '<span class="pill okG">Good distance ✓</span>';
+    if (!readySince) readySince = t;
+  } else readySince = 0;
+  $('#sStatus').innerHTML = `<span class="pill ${gOk?'okG':''}">${gOk?'✓':'…'} Green glove</span><span class="pill ${yOk?'okY':''}">${yOk?'✓':'…'} Yellow glove</span>${dist}`;
+}
+$('#tMask').onclick = () => { showMask = !showMask; maskC.classList.toggle('on', showMask); $('#tMask').classList.toggle('on', showMask); $('#tMask').textContent = showMask ? 'Hide color mask' : 'Show color mask'; };
+$('#tCam').onclick = async () => {
+  camOn = !camOn; $('#tCam').textContent = 'Tracking: ' + (camOn ? 'ON' : 'OFF'); $('#tapHint').style.display = camOn ? '' : 'none';
+  if (camOn) { if (!(await startCamera())) camOn = false; } else stopCamera();
+  $('#stage').classList.toggle('on', camOn); setupStatus(now());
+};
+$('#sStart').onclick = () => startWorkout();
+
+/* ================= WORKOUT ENGINE ================= */
+let E = null, wakeLock = null;
+function buildSegs(w){
+  const segs = [{k:'prep', dur:10, round:0}];
+  (w.warm || []).forEach(b => segs.push({...b, round:0, warm:true}));
+  w.rounds.forEach((blocks, i) => {
+    blocks.forEach((b, j) => segs.push({...b, round:i + 1, first:j === 0, last:j === blocks.length - 1}));
+    if (i < w.rounds.length - 1) segs.push({k:'rest', dur:w.rest, round:i + 1});
+  });
+  let after = 0; // seconds left in the round after each block
+  for (let i = segs.length - 1; i >= 0; i--) { const s = segs[i]; if (s.k === 'rest' || s.k === 'prep' || s.warm) { after = 0; s.after = 0; continue; } s.after = after; after = s.first ? 0 : after + s.dur; }
+  return segs;
+}
+async function startWorkout(){
+  const p = prof();
+  ac(); speak(' ', 1); // unlock iOS speech inside the tap
+  try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+  const t = now();
+  E = {running:true, w:curW, p, segs:buildSegs(curW), i:-1, segStart:t, paused:false, nextCall:0, win:null, lastCombo:'', lastT:t, roundStart:t, cam:camOn, warned:false, cd:-1,
+       st:{punches:0, L:0, R:0, type:{straight:0, hook:0, upper:0}, perfect:0, good:0, miss:0, score:0, streak:0, best:0, typeHit:0, typeTot:0, work:0, roundP:0}};
+  ['L','R'].forEach(h => { det[h] = mkDet(); });
+  show('workout'); $('#paused').classList.remove('on');
+  nextSeg(t);
+}
+function segLabel(s){
+  if (s.k === 'prep') return 'Get ready';
+  if (s.k === 'rest') return 'Rest';
+  if (s.k === 'drill') return 'Drill · ' + s.combo;
+  if (s.k === 'random') return 'Combos on my call';
+  if (s.k === 'free') return s.label || 'Freestyle';
+  return s.name;
+}
+function nextSeg(t){
+  closeWin();
+  const prev = E.segs[E.i];
+  E.i++;
+  if (prev && prev.last) bell(3);
+  if (E.i >= E.segs.length) { finish(); return; }
+  const s = E.segs[E.i], p = E.p, rate = PACE[p.level].rate;
+  E.segStart = t; E.warned = false; E.cd = -1;
+  $('#hudCall').innerHTML = ''; $('#hudBig').innerHTML = ''; $('#hudFeed').innerHTML = '';
+  if (s.first) { bell(1); E.roundStart = t; E.st.roundP = 0; }
+  let say = '', extra = 0;
+  if (s.k === 'prep') { say = 'Hands up. Get ready.'; big('GET READY', 'Gloves up in guard'); }
+  else if (s.k === 'rest') { const nr = E.segs.find((x, j) => j > E.i && x.first); say = 'Rest. Shake it out.' + (s.dur >= 20 ? ' Breathe.' : ''); big('REST', nr ? 'Round ' + nr.round + ' up next' : ''); }
+  else if (s.k === 'move') { say = s.name + '!'; big(s.name.toUpperCase(), 'No punches — just this move'); }
+  else if (s.k === 'free') { say = (s.label || 'Freestyle') + (s.int === 'burnout' ? '' : ''); big(s.int === 'burnout' ? '🔥 BURNOUT' : s.int === 'power' ? '💥 POWER' : 'FREESTYLE', s.label || 'Throw what you want'); }
+  else if (s.k === 'drill') { say = (s.first ? 'Round ' + s.round + '. ' : '') + 'Drill. ' + sayCombo(parseCombo(s.combo), p) + '. On my call.'; extra = 0.6; }
+  else if (s.k === 'random') { say = (s.first ? 'Round ' + s.round + '. ' : '') + 'Combos on my call.'; extra = 0.4; }
+  if (s.k === 'free' && s.first) say = 'Round ' + s.round + '. ' + say;
+  speak(say, rate, true);
+  E.nextCall = t + 0.25 + say.split(/\s+/).length * 0.42 / rate + extra;
+  $('#hudBlock').textContent = segLabel(s);
+}
+function big(a, b){ $('#hudBig').innerHTML = esc(a) + (b ? `<small>${esc(b)}</small>` : ''); }
+
+function pickCombo(s){
+  if (s.k === 'drill') return s.combo;
+  const pool = POOLS[s.pool || E.p.level];
+  let c; do { c = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && c === E.lastCombo);
+  return c;
+}
+function callCombo(t, s){
+  const p = E.p, pace = PACE[p.level], mult = p.pace || 1;
+  const str = pickCombo(s); E.lastCombo = str;
+  const c = parseCombo(str), text = sayCombo(c, p);
+  speak(text, pace.rate, true);
+  const est = 0.25 + text.split(/\s+/).length * 0.42 / pace.rate;
+  const nP = c.filter(x => !x.def).length, nD = c.length - nP;
+  const dur = est + (nP * pace.pp + nD * 0.6 + pace.gap) * mult;
+  E.win = {exp:c.filter(x => !x.def).map(x => ({hand:handFor(x.n, p), type:TYPE[x.n]})), start:t + est*0.3, end:t + dur, got:[]};
+  E.nextCall = E.win.end + 0.05;
+  $('#hudBig').innerHTML = ''; $('#hudFeed').innerHTML = '';
+  $('#hudCall').innerHTML = c.map(x => {
+    if (x.def) return `<div class="chip def"><b>${x.def === 'slip' ? '↯' : '⤵'}</b><small>${esc(x.def)}</small></div>`;
+    const h = handFor(x.n, p), kid = p.level === 'kid';
+    const top = p.calls === 'numbers' ? x.n : SHORT[x.n], bot = p.calls === 'numbers' ? SHORT[x.n] : x.n;
+    return `<div class="chip ${h === 'L' ? 'g' : 'y'} ${kid ? 'kidsz' : ''}"><b>${top}</b><small>${bot}${x.body ? ' · body' : ''}</small></div>`;
+  }).join('');
+}
+function closeWin(){ if (E && E.win) evaluate(); }
+function evaluate(){
+  const w = E.win; E.win = null;
+  if (!E.cam || !w || !w.exp.length) return;
+  const st = E.st, exp = w.exp, got = w.got;
+  let handOk = 0, typeOk = 0, firstBad = -1;
+  exp.forEach((e, i) => { const g = got[i]; if (g && g.hand === e.hand) handOk++; else if (firstBad < 0) firstBad = i; if (g && g.type === e.type) typeOk++; });
+  st.typeHit += typeOk; st.typeTot += exp.length;
+  let r, msg = '';
+  if (!got.length) { r = 'miss'; msg = 'No punches seen'; }
+  else if (handOk === exp.length && got.length <= exp.length + 1) { r = 'perfect'; }
+  else if (handOk >= Math.ceil(exp.length * 0.6)) { r = 'good'; msg = got.length < exp.length ? 'Missed ' + (exp.length - got.length) + ' punch' + (exp.length - got.length > 1 ? 'es' : '') : 'Close!'; }
+  else { r = 'miss'; msg = firstBad >= 0 ? 'Punch ' + (firstBad + 1) + ' = ' + gloveName(exp[firstBad].hand) + ' glove' : 'Try again'; }
+  st[r]++;
+  if (r === 'miss') st.streak = 0; else if (r === 'perfect') st.streak++;
+  st.best = Math.max(st.best, st.streak);
+  const mult = 1 + Math.min(4, Math.floor(st.streak / 3)) * 0.5;
+  st.score += Math.round((r === 'perfect' ? 100 : r === 'good' ? 50 : 0) * mult);
+  sfx[r]();
+  const label = {perfect:(E.p.level === 'kid' ? '⭐ PERFECT!' : 'PERFECT'), good:'👍 GOOD', miss:'✗ MISS'}[r];
+  $('#hudFeed').innerHTML = `<span class="${r === 'perfect' ? 'fp' : r === 'good' ? 'fg' : 'fm'}">${label}</span>${msg ? `<small>${esc(msg)}</small>` : (mult > 1 ? `<small>×${mult} streak bonus</small>` : '')}`;
+}
+function onPunch(hand, type, t){
+  if (!E || !E.running || E.paused) return;
+  const s = E.segs[E.i];
+  if (!s || s.k === 'rest' || s.k === 'prep' || s.k === 'move') return;
+  const st = E.st; st.punches++; st[hand]++; st.type[type]++; st.roundP++;
+  if (E.win && t >= E.win.start - 0.2 && t <= E.win.end) {
+    E.win.got.push({hand, type});
+    const chips = $('#hudCall').querySelectorAll('.chip:not(.def)'); const c = chips[E.win.got.length - 1]; if (c) c.classList.add('hit');
+  }
+}
+function tick(t){
+  if (!E || !E.running) return;
+  const dt = Math.min(0.25, t - E.lastT); E.lastT = t;
+  if (E.paused) return;
+  const s = E.segs[E.i], el = t - E.segStart;
+  if (s.k === 'drill' || s.k === 'random' || s.k === 'free') E.st.work += dt;
+  if (s.k === 'prep' || s.k === 'rest') { const left = Math.ceil(s.dur - el); if (left <= 3 && left >= 1 && left !== E.cd) { E.cd = left; beep(false); } }
+  if (E.win && t >= E.win.end) evaluate();
+  if ((s.k === 'drill' || s.k === 'random') && !E.win && t >= E.nextCall && s.dur - el > 2.2) callCombo(t, s);
+  if (s.last && !E.warned && s.dur - el <= 10 && s.dur >= 15) { E.warned = true; clack(); }
+  // HUD
+  const inRound = s.round > 0 && !s.warm && s.k !== 'rest';
+  $('#hudRound').textContent = s.k === 'prep' ? 'GET READY' : s.warm ? 'WARM-UP' : s.k === 'rest' ? 'REST' : 'ROUND ' + s.round + ' / ' + E.w.rounds.length;
+  $('#hudTime').textContent = fmt((s.dur - el) + (inRound ? s.after : 0));
+  $('#stP').textContent = E.st.punches;
+  const rt = (t - E.roundStart) / 60;
+  $('#stR').textContent = inRound && rt > 0.15 ? Math.round(E.st.roundP / rt) : '–';
+  $('#stS').textContent = E.st.score; $('#stK').textContent = E.st.streak;
+  if (el >= s.dur) nextSeg(t);
+}
+function pause(){ if (!E || E.paused) return; E.paused = true; E.pauseAt = now(); try { speechSynthesis.cancel(); } catch(e) {} $('#paused').classList.add('on'); }
+function resume(){
+  if (!E || !E.paused) return; const sh = now() - E.pauseAt;
+  E.segStart += sh; E.nextCall += sh; E.roundStart += sh; if (E.win) { E.win.start += sh; E.win.end += sh; }
+  E.paused = false; E.lastT = now(); $('#paused').classList.remove('on');
+}
+$('#bPause').onclick = pause; $('#bResume').onclick = resume;
+$('#bEnd').onclick = () => { pause(); };
+$('#bQuit').onclick = () => { if (E) { E.paused = false; finish(true); } };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+function finish(early){
+  if (!E) return;
+  closeWin(); E.running = false;
+  try { speechSynthesis.cancel(); } catch(e) {}
+  if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
+  stopCamera();
+  const st = E.st, combos = st.perfect + st.good + st.miss;
+  const acc = combos ? (st.perfect + st.good*0.5) / combos : 0;
+  const stars = !E.cam ? 0 : acc >= 0.85 ? 3 : acc >= 0.6 ? 2 : 1;
+  const ppm = st.work > 20 ? Math.round(st.punches / (st.work / 60)) : 0;
+  const done = !early || E.i >= E.segs.length;
+  const prevBest = S.history.filter(h => h.pid === E.p.id && h.wid === E.w.id).reduce((m, h) => Math.max(m, h.score), 0);
+  if (st.work > 30) {
+    S.history.push({date:Date.now(), pid:E.p.id, wid:E.w.id, wname:E.w.name, punches:st.punches, ppm, acc:Math.round(acc*100), score:st.score, stars, cam:E.cam, done});
+    if (S.history.length > 300) S.history = S.history.slice(-300);
+    save();
+  }
+  if (!early) speak(stars === 3 ? 'Great work, champ!' : 'Workout done. Good job.', 1.05);
+  const tot = Math.max(1, st.punches), tt = Math.max(1, st.type.straight + st.type.hook + st.type.upper);
+  const newBest = E.cam && st.score > prevBest && st.score > 0;
+  $('#resBody').innerHTML = `
+    <div class="topbar"><h2>${esc(E.p.emoji)} ${esc(E.p.name)} · ${esc(E.w.name)}</h2></div>
+    ${E.cam ? `<div class="stars">${'⭐'.repeat(stars)}<span style="opacity:.2">${'⭐'.repeat(3 - stars)}</span></div>` : ''}
+    ${newBest ? '<p style="text-align:center;color:var(--gold);font-weight:900;font-size:20px;margin:0">🏆 New best score!</p>' : ''}
+    ${!done ? '<p class="note" style="text-align:center">Ended early</p>' : ''}
+    <div class="grid">
+      <div class="tile"><b>${st.punches}</b><span>Punches</span></div>
+      <div class="tile"><b>${ppm || '–'}</b><span>Per minute</span></div>
+      ${E.cam ? `<div class="tile"><b>${Math.round(acc*100)}%</b><span>Combo accuracy</span></div>
+      <div class="tile"><b>${st.score}</b><span>Score</span></div>
+      <div class="tile"><b>${st.perfect}/${st.good}/${st.miss}</b><span>Perfect/Good/Miss</span></div>
+      <div class="tile"><b>${st.best}</b><span>Best streak</span></div>` : `<div class="tile" style="grid-column:span 2"><span>Tracking was off — callouts only</span></div>`}
+    </div>
+    ${E.cam && st.punches ? `<div class="card">
+      <div class="label" style="margin-top:0">Left vs right</div>
+      <div class="bar"><i style="width:${st.L/tot*100}%;background:var(--green)"></i><i style="width:${st.R/tot*100}%;background:var(--yellow)"></i></div>
+      <p>🟢 Left ${st.L} · 🟡 Right ${st.R}</p>
+      <div class="label">Punch types (beta)</div>
+      <p>Straights ${st.type.straight} · Hooks ${st.type.hook} · Uppercuts ${st.type.upper}${st.typeTot ? ` · matched the callout ${Math.round(st.typeHit/st.typeTot*100)}%` : ''}</p>
+      <div class="bar"><i style="width:${st.type.straight/tt*100}%;background:#6fb7ff"></i><i style="width:${st.type.hook/tt*100}%;background:#ff9f43"></i><i style="width:${st.type.upper/tt*100}%;background:#c38bff"></i></div>
+      <p class="note" style="margin-top:8px">The punch type is estimated from one camera angle, so treat it as a rough guide. The left/right and punch counts are more reliable.</p>
+    </div>` : ''}
+    <div class="btnrow" style="margin-top:12px"><button class="btn main" id="rAgain">Go again</button><button class="btn" data-go="home">Home</button></div>`;
+  $('#rAgain').onclick = () => openSetup(E.w);
+  show('results');
+}
+
+/* ================= MAIN LOOP ================= */
+function loop(){
+  requestAnimationFrame(loop);
+  const t = now();
+  if (stream && camOn) processFrame(t);
+  tick(t);
+}
+renderHome();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
