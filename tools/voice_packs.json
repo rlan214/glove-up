@@ -1,0 +1,17 @@
+{
+ "coach": {
+  "voice_id": "SOYHLrjzK2X1ezoPC6cr",
+  "name": "Harry",
+  "label": "Harry \u00b7 fierce coach"
+ },
+ "kid": {
+  "voice_id": "dfZGXKiIzjizWtJ0NgPy",
+  "name": "Michael Mouse",
+  "label": "Michael Mouse \u00b7 cartoon coach"
+ },
+ "lily": {
+  "voice_id": "pFZP5JQG7iQjIQuC4Bku",
+  "name": "Lily",
+  "label": "Lily \u00b7 British coach"
+ }
+}

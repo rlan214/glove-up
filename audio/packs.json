@@ -1,0 +1,17 @@
+[
+ {
+  "id": "coach",
+  "name": "Harry",
+  "label": "Harry \u00b7 fierce coach"
+ },
+ {
+  "id": "kid",
+  "name": "Michael Mouse",
+  "label": "Michael Mouse \u00b7 cartoon coach"
+ },
+ {
+  "id": "lily",
+  "name": "Lily",
+  "label": "Lily \u00b7 British coach"
+ }
+]

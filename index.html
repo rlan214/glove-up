@@ -94,6 +94,9 @@ input[type=range]{width:100%}
 .chip.def{background:#e9eef0;color:#1d2a30}
 .chip.hit{transform:scale(.88);opacity:.45}
 .chip.kidsz b{font-size:30px}
+#hudCall.mini{top:auto;bottom:calc(env(safe-area-inset-bottom) + 128px);transform:none;gap:6px}
+#hudCall.mini .chip{min-width:52px;padding:6px 8px;border-radius:12px}
+#hudCall.mini .chip b{font-size:18px}#hudCall.mini .chip small{font-size:10px;margin-top:2px}
 #hudBig{position:absolute;left:0;right:0;top:40%;transform:translateY(-50%);text-align:center;font-size:44px;font-weight:900;text-shadow:0 3px 16px #000;padding:0 16px}
 #hudBig small{display:block;font-size:18px;font-weight:700;color:#dfe9e3;margin-top:6px}
 #hudFeed{position:absolute;left:0;right:0;top:58%;text-align:center;font-size:30px;font-weight:900;text-shadow:0 3px 12px #000;transition:opacity .3s}
@@ -175,6 +178,7 @@ input[type=range]{width:100%}
   <div class="field"><label>Emoji</label><input type="text" id="pEmoji" maxlength="4"></div>
   <div class="field"><label>Level (sets combos + callout speed)</label><div class="seg" id="pLevel"></div></div>
   <div class="field"><label>Stance</label><div class="seg" id="pStance"></div></div>
+  <div class="field"><label>Show combos as</label><div class="seg" id="pMode"></div><div class="note">Targets appear on the camera view where each punch should land. Chips just list the punches.</div></div>
   <div class="field"><label>Coach calls</label><div class="seg" id="pCalls"></div></div>
   <div class="field"><label>Callout speed <span id="pPaceV"></span></label><input type="range" id="pPace" min="0.7" max="1.5" step="0.05"><div class="note">Left = faster, right = more time between combos.</div></div>
   <div class="field"><label>Punch sensitivity <span id="pSensV"></span></label><input type="range" id="pSens" min="0.6" max="1.6" step="0.05"><div class="note">Raise it if punches aren't counted. Lower it if it counts punches you didn't throw.</div></div>
@@ -190,7 +194,8 @@ input[type=range]{width:100%}
   <div id="setupPanel" class="pe"><div class="inner">
     <h2 id="sTitle">Workout</h2>
     <ul>
-      <li>Prop the phone up at chest height, <b>6–8 ft away</b>.</li>
+      <li>Mount the phone or iPad on a <b>tripod at chest height</b>, <b>6–8 ft away</b>, screen facing you.</li>
+      <li><b>Make sure you can see yourself</b> — head to waist, both gloves on screen. <b>You are the target</b>: the targets appear on your own reflection, like punching at a mirror.</li>
       <li>Gloves up in guard: <b style="color:var(--green)">green on left</b>, <b style="color:var(--yellow)">yellow on right</b>.</li>
       <li>Avoid green or yellow shirts, and keep the room bright.</li>
     </ul>
@@ -447,6 +452,7 @@ function openProfile(p){
   $('#pTitle').textContent = p.name; $('#pName').value = p.name; $('#pEmoji').value = p.emoji;
   segCtl($('#pLevel'), Object.entries(LEVELS), p.level, v => editP.level = v);
   segCtl($('#pStance'), [['orthodox','Orthodox (left lead)'],['southpaw','Southpaw (right lead)']], p.stance, v => editP.stance = v);
+  segCtl($('#pMode'), [['target','🎯 Targets'],['chips','Number chips']], p.mode || 'target', v => editP.mode = v);
   segCtl($('#pCalls'), [['names','Names'],['numbers','Numbers']], p.calls, v => editP.calls = v);
   segCtl($('#pVoice'), [['true','On'],['false','Off']], p.voice, v => editP.voice = v === 'true');
   $('#pPace').value = p.pace; $('#pPaceV').textContent = '×' + (+p.pace).toFixed(2);
@@ -590,13 +596,15 @@ function updDet(d, b, t, o, th){
     if (trig && t - d.lastPunchT > 0.16) {
       if (o.state === 'ready' && o.lastF && bodyMove(f, o.lastF, th)) { // whole body moved, not a punch
         d.guard = {x:b.x, y:b.y, a:b.a}; if (o.prev) o.guard = {x:o.prev.x, y:o.prev.y, a:o.guard ? o.guard.a * (o.lastF.r || 1) : 1};
-      } else { d.state = 'peak'; d.trigT = t; d.peak = {r:f.r, dx:f.dx, up:-f.dy, sp}; }
+      } else { d.state = 'peak'; d.trigT = t; d.peak = {r:f.r, dx:f.dx, up:-f.dy, sp, x:b.x, y:b.y}; }
     } else if (sp < 0.35) {
       const k = 0.06; d.guard.x += (b.x - d.guard.x)*k; d.guard.y += (b.y - d.guard.y)*k; d.guard.a += (b.a - d.guard.a)*k;
     }
   } else if (d.state === 'peak') {
     const pk = d.peak;
-    pk.r = Math.max(pk.r, f.r); if (Math.abs(f.dx) > Math.abs(pk.dx)) pk.dx = f.dx; pk.up = Math.max(pk.up, -f.dy);
+    let grew = false;
+    if (f.r > pk.r) { pk.r = f.r; grew = true; } if (Math.abs(f.dx) > Math.abs(pk.dx)) { pk.dx = f.dx; grew = true; } if (-f.dy > pk.up) { pk.up = -f.dy; grew = true; }
+    if (grew) { pk.x = b.x; pk.y = b.y; }
     const falling = f.r < pk.r*0.85 + 0.15 && Math.abs(f.dx) < Math.abs(pk.dx)*0.85 + 0.1 && -f.dy < pk.up*0.85 + 0.1;
     if ((falling && t - d.trigT > 0.05) || t - d.trigT > 0.26) ev = finalize(d, t, th);
   } else if (d.state === 'cool') {
@@ -620,7 +628,7 @@ function finalize(d, t, th){
   if (sc.upper > best) { type = 'upper'; best = sc.upper; }
   if (best < 0.8) type = 'straight'; // speed-only trigger
   d.state = 'cool'; d.coolT = t; d.lastPunchT = d.trigT;
-  return {t:d.trigT, type};
+  return {t:d.trigT, type, x:pk.x, y:pk.y};
 }
 
 const flash = {L:-9, R:-9};
@@ -635,15 +643,58 @@ function processFrame(t){
   for (const h of ['L','R']) {
     if (blobs[h].found) seen[h] = t;
     const ev = updDet(det[h], blobs[h], t, det[h === 'L' ? 'R' : 'L'], th);
-    if (ev) { flash[h] = t; onPunch(h, ev.type, ev.t); }
+    if (ev) { flash[h] = t; onPunch(h, ev.type, ev.t, ev); }
   }
   drawOverlay(t);
   if (showMask) drawMask();
   if ($('#setup').classList.contains('active')) setupStatus(t);
   $('#dotG').classList.toggle('on', blobs.L.found); $('#dotY').classList.toggle('on', blobs.R.found);
 }
+/* ----- Target mode geometry (camera pixels, before mirroring) ----- */
+let lastHead = null;
+function headRef(){
+  const gL = det.L.guard, gR = det.R.guard;
+  if (gL && gR) {
+    const sz = (Math.sqrt(gL.a) + Math.sqrt(gR.a)) / 2;
+    lastHead = {x:(gL.x + gR.x) / 2, y:Math.min(gL.y, gR.y) - 0.5*sz, s:sz};
+  }
+  return lastHead || {x:W/2, y:H*0.38, s:Math.max(W, H)*0.07};
+}
+function sideOf(hand, hd){ const g = det[hand].guard; const d = g ? Math.sign(g.x - hd.x) : 0; return d || (hand === 'L' ? 1 : -1); }
+function targetFor(e, hd){
+  const sd = sideOf(e.hand, hd), s = hd.s;
+  let x, y;
+  if (e.type === 'hook') { x = hd.x - sd*0.15*s; y = hd.y + 0.15*s; }
+  else if (e.type === 'upper') { x = hd.x + sd*0.3*s; y = hd.y + 0.1*s; }
+  else { x = hd.x + sd*0.6*s; y = hd.y + 0.25*s; }
+  if (e.body) y += 2.2*s;
+  return {x, y, r:s, tol:1.9*s};
+}
+function drawTargets(t){
+  const w = E && E.win; if (!w || !w.targets || E.paused) return;
+  const k = 3, cur = w.got.length;
+  w.targets.forEach((tg, j) => {
+    const e = w.exp[j], col = e.hand === 'L' ? '56,212,108' : '240,230,55';
+    let a, rr;
+    if (j < cur) { const age = t - (w.got[j].t2 || t); if (age > 0.45) return; a = 1 - age/0.45; rr = tg.r*k*(1 + age*1.6); }
+    else if (j === cur) { a = 1; rr = tg.r*k*(1 + 0.07*Math.sin(t*9)); }
+    else if (j === cur + 1) { a = 0.35; rr = tg.r*k*0.8; }
+    else return;
+    const hitOk = j < cur && w.got[j].on;
+    octx.beginPath(); octx.arc(tg.x*k, tg.y*k, rr, 0, Math.PI*2);
+    octx.fillStyle = `rgba(${col},${0.22*a})`; octx.fill();
+    octx.lineWidth = j === cur ? 7 : 4; octx.strokeStyle = j < cur ? (hitOk ? `rgba(255,214,60,${a})` : `rgba(255,255,255,${a*0.6})`) : `rgba(${col},${a})`; octx.stroke();
+    if (j === cur) { octx.beginPath(); octx.arc(tg.x*k, tg.y*k, rr*0.45, 0, Math.PI*2); octx.lineWidth = 3; octx.strokeStyle = `rgba(${col},0.8)`; octx.stroke(); }
+    octx.save(); octx.translate(tg.x*k, tg.y*k); octx.scale(-1, 1); octx.textAlign = 'center';
+    octx.fillStyle = `rgba(255,255,255,${a})`; octx.font = `900 ${Math.round(rr*0.62)}px -apple-system,sans-serif`; octx.textBaseline = 'middle';
+    octx.fillText(j < cur ? (hitOk ? '🎯' : '✓') : String(j + 1), 0, 2);
+    if (j === cur) { octx.font = '800 22px -apple-system,sans-serif'; octx.fillStyle = `rgb(${col})`; octx.fillText((e.body ? 'BODY ' : '') + SHORT[e.n], 0, rr + 18); }
+    octx.restore();
+  });
+}
 function drawOverlay(t){
   const k = 3; octx.clearRect(0, 0, ov.width, ov.height);
+  if (E && E.running) drawTargets(t);
   for (const h of ['L','R']) {
     const b = blobs[h], col = h === 'L' ? '#38d46c' : '#f0e637';
     if (!b.found) continue;
@@ -651,9 +702,10 @@ function drawOverlay(t){
     octx.lineWidth = 5; octx.strokeStyle = col;
     octx.beginPath(); octx.arc(b.x*k, b.y*k, r, 0, Math.PI*2); octx.stroke();
     if (t - flash[h] < 0.25) { octx.fillStyle = col + '88'; octx.fill(); }
+    const busy = E && E.running && !E.paused;
     const g = det[h].guard;
-    if (g) { octx.setLineDash([6,6]); octx.lineWidth = 2; octx.strokeStyle = col + '99'; octx.beginPath(); octx.arc(g.x*k, g.y*k, Math.sqrt(g.a/Math.PI)*k, 0, Math.PI*2); octx.stroke(); octx.setLineDash([]); }
-    octx.save(); octx.translate(b.x*k, b.y*k - r - 10); octx.scale(-1, 1); octx.fillStyle = col; octx.font = 'bold 26px -apple-system,sans-serif'; octx.textAlign = 'center'; octx.fillText(h === 'L' ? 'LEFT' : 'RIGHT', 0, 0); octx.restore();
+    if (g && !busy) { octx.setLineDash([6,6]); octx.lineWidth = 2; octx.strokeStyle = col + '99'; octx.beginPath(); octx.arc(g.x*k, g.y*k, Math.sqrt(g.a/Math.PI)*k, 0, Math.PI*2); octx.stroke(); octx.setLineDash([]); }
+    if (!busy) { octx.save(); octx.translate(b.x*k, b.y*k - r - 10); octx.scale(-1, 1); octx.fillStyle = col; octx.font = 'bold 26px -apple-system,sans-serif'; octx.textAlign = 'center'; octx.fillText(h === 'L' ? 'LEFT' : 'RIGHT', 0, 0); octx.restore(); }
   }
 }
 function drawMask(){
@@ -735,7 +787,7 @@ async function startWorkout(){
   try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
   const t = now();
   E = {running:true, w:curW, p, segs:buildSegs(curW), i:-1, segStart:t, paused:false, nextCall:0, win:null, lastCombo:'', lastT:t, roundStart:t, cam:camOn, warned:false, cd:-1,
-       st:{punches:0, L:0, R:0, type:{straight:0, hook:0, upper:0}, perfect:0, good:0, miss:0, score:0, streak:0, best:0, typeHit:0, typeTot:0, work:0, roundP:0}};
+       st:{punches:0, L:0, R:0, type:{straight:0, hook:0, upper:0}, perfect:0, good:0, miss:0, score:0, streak:0, best:0, typeHit:0, typeTot:0, onT:0, onTot:0, work:0, roundP:0}};
   ['L','R'].forEach(h => { det[h] = mkDet(); });
   show('workout'); $('#paused').classList.remove('on');
   nextSeg(t);
@@ -756,7 +808,7 @@ function nextSeg(t){
   if (E.i >= E.segs.length) { finish(); return; }
   const s = E.segs[E.i], p = E.p, rate = PACE[p.level].rate;
   E.segStart = t; E.warned = false; E.cd = -1;
-  $('#hudCall').innerHTML = ''; $('#hudBig').innerHTML = ''; $('#hudFeed').innerHTML = '';
+  $('#hudCall').innerHTML = ''; $('#hudCall').classList.remove('mini'); $('#hudBig').innerHTML = ''; $('#hudFeed').innerHTML = '';
   if (s.first) { bell(1); E.roundStart = t; E.st.roundP = 0; }
   let say = '', extra = 0;
   if (s.k === 'prep') { say = 'Hands up. Get ready.'; big('GET READY', 'Gloves up in guard'); }
@@ -786,7 +838,10 @@ function callCombo(t, s){
   const est = 0.25 + text.split(/\s+/).length * 0.42 / pace.rate;
   const nP = c.filter(x => !x.def).length, nD = c.length - nP;
   const dur = est + (nP * pace.pp + nD * 0.6 + pace.gap) * mult;
-  E.win = {exp:c.filter(x => !x.def).map(x => ({hand:handFor(x.n, p), type:TYPE[x.n]})), start:t + est*0.3, end:t + dur, got:[]};
+  E.win = {exp:c.filter(x => !x.def).map(x => ({hand:handFor(x.n, p), type:TYPE[x.n], n:x.n, body:x.body})), start:t + est*0.3, end:t + dur, got:[]};
+  const tgtMode = E.cam && (p.mode || 'target') === 'target';
+  if (tgtMode) { const hd = headRef(); E.win.targets = E.win.exp.map(e => targetFor(e, hd)); }
+  $('#hudCall').classList.toggle('mini', tgtMode);
   E.nextCall = E.win.end + 0.05;
   $('#hudBig').innerHTML = ''; $('#hudFeed').innerHTML = '';
   $('#hudCall').innerHTML = c.map(x => {
@@ -818,13 +873,19 @@ function evaluate(){
   const label = {perfect:(E.p.level === 'kid' ? '⭐ PERFECT!' : 'PERFECT'), good:'👍 GOOD', miss:'✗ MISS'}[r];
   $('#hudFeed').innerHTML = `<span class="${r === 'perfect' ? 'fp' : r === 'good' ? 'fg' : 'fm'}">${label}</span>${msg ? `<small>${esc(msg)}</small>` : (mult > 1 ? `<small>×${mult} streak bonus</small>` : '')}`;
 }
-function onPunch(hand, type, t){
+function onPunch(hand, type, t, ev){
   if (!E || !E.running || E.paused) return;
   const s = E.segs[E.i];
   if (!s || s.k === 'rest' || s.k === 'prep' || s.k === 'move') return;
   const st = E.st; st.punches++; st[hand]++; st.type[type]++; st.roundP++;
   if (E.win && t >= E.win.start - 0.2 && t <= E.win.end) {
-    E.win.got.push({hand, type});
+    const j = E.win.got.length, g = {hand, type, t2:now(), on:false};
+    const tg = E.win.targets && E.win.targets[j];
+    if (tg && ev && ev.x != null && hand === E.win.exp[j].hand) {
+      g.on = Math.hypot(ev.x - tg.x, ev.y - tg.y) < tg.tol;
+      st.onTot++; if (g.on) { st.onT++; tone(1560, 0.07, 'triangle', 0.18); }
+    } else if (tg) st.onTot++;
+    E.win.got.push(g);
     const chips = $('#hudCall').querySelectorAll('.chip:not(.def)'); const c = chips[E.win.got.length - 1]; if (c) c.classList.add('hit');
   }
 }
@@ -896,6 +957,7 @@ function finish(early){
       <div class="label" style="margin-top:0">Left vs right</div>
       <div class="bar"><i style="width:${st.L/tot*100}%;background:var(--green)"></i><i style="width:${st.R/tot*100}%;background:var(--yellow)"></i></div>
       <p>🟢 Left ${st.L} · 🟡 Right ${st.R}</p>
+      ${st.onTot ? `<div class="label">🎯 Targets</div><p>${st.onT} of ${st.onTot} punches landed on target (${Math.round(st.onT/st.onTot*100)}%)</p>` : ''}
       <div class="label">Punch types (beta)</div>
       <p>Straights ${st.type.straight} · Hooks ${st.type.hook} · Uppercuts ${st.type.upper}${st.typeTot ? ` · matched the callout ${Math.round(st.typeHit/st.typeTot*100)}%` : ''}</p>
       <div class="bar"><i style="width:${st.type.straight/tt*100}%;background:#6fb7ff"></i><i style="width:${st.type.hook/tt*100}%;background:#ff9f43"></i><i style="width:${st.type.upper/tt*100}%;background:#c38bff"></i></div>
