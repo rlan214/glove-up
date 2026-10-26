@@ -312,13 +312,18 @@ const KEY = 'gloveup.v1';
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
 if (!S || !S.profiles) S = {
-  profiles:[newProfile({id:'rico',name:'Rico',emoji:'🚀',level:'kid'}), newProfile({id:'lana',name:'Lana',emoji:'👼',level:'beg'}), newProfile({id:'dad',name:'Dad',emoji:'🥊',level:'int',calls:'numbers'}), newProfile({id:'mom',name:'Mom',emoji:'💪',level:'beg'}), newProfile({id:'kyla',name:'Kyla',emoji:'🎀',level:'kid',pace:1.5,sens:1.4})], seeded:2,
+  profiles:[newProfile({id:'rico',name:'Rico',emoji:'🚀',level:'kid'}), newProfile({id:'lana',name:'Lana',emoji:'👼',level:'beg'}), newProfile({id:'dad',name:'Dad',emoji:'🥊',level:'int'}), newProfile({id:'mom',name:'Mom',emoji:'💪',level:'beg',voice:'lily'}), newProfile({id:'kyla',name:'Kyla',emoji:'🎀',level:'kid',pace:1.5,sens:1.4})], seeded:3,
   active:'dad', colors:JSON.parse(JSON.stringify(DEFAULT_COLORS)), history:[]
 };
 if (!S.seeded || S.seeded < 2) { // add Mom + Kyla for existing installs
   if (!S.profiles.some(p => p.id === 'mom')) S.profiles.push(newProfile({id:'mom',name:'Mom',emoji:'💪',level:'beg'}));
   if (!S.profiles.some(p => p.id === 'kyla')) S.profiles.push(newProfile({id:'kyla',name:'Kyla',emoji:'🎀',level:'kid',pace:1.5,sens:1.4}));
-  S.seeded = 2; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {}
+  S.seeded = 2;
+}
+if (S.seeded < 3) { // names instead of numbers for Dad, Lily voice for Mom
+  const d = S.profiles.find(p => p.id === 'dad'); if (d && d.calls === 'numbers') d.calls = 'names';
+  const m = S.profiles.find(p => p.id === 'mom'); if (m && (m.voice === true || m.voice == null)) m.voice = 'lily';
+  S.seeded = 3; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {}
 }
 if (!S.colors) S.colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} };
@@ -454,7 +459,7 @@ function openProfile(p){
   segCtl($('#pStance'), [['orthodox','Orthodox (left lead)'],['southpaw','Southpaw (right lead)']], p.stance, v => editP.stance = v);
   segCtl($('#pMode'), [['target','🎯 Targets'],['chips','Number chips']], p.mode || 'target', v => editP.mode = v);
   segCtl($('#pCalls'), [['names','Names'],['numbers','Numbers']], p.calls, v => editP.calls = v);
-  segCtl($('#pVoice'), [['true','On'],['false','Off']], p.voice, v => editP.voice = v === 'true');
+  segCtl($('#pVoice'), [...PACKS.map(x => [x.id, x.name]), ['device','Phone'], ['off','Off']], voiceMode(p), v => { editP.voice = v; loadPack(v); setTimeout(() => speak('Jab, cross, hook', 1.05, true, {...editP, voice:v}), 700); });
   $('#pPace').value = p.pace; $('#pPaceV').textContent = '×' + (+p.pace).toFixed(2);
   $('#pSens').value = p.sens; $('#pSensV').textContent = '×' + (+p.sens).toFixed(2);
   $('#pDel').style.display = S.profiles.length > 1 ? '' : 'none';
@@ -493,12 +498,80 @@ function pickVoice(){
   VOICE = vs.find(v => /en-US/i.test(v.lang) && /Samantha|Aaron|Nicky|Evan|Siri/i.test(v.name)) || vs.find(v => /en-US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
 }
 if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function speak(text, rate, interrupt){
-  if (!window.speechSynthesis || (E && !E.p.voice)) return;
+/* ----- Recorded coach voices (ElevenLabs clips in audio/<pack>/) ----- */
+let PACKS = [];
+const PACKBUF = {};
+const ACTIVE = [];
+fetch('audio/packs.json', {cache:'no-cache'}).then(r => r.ok ? r.json() : []).then(j => { PACKS = Array.isArray(j) ? j : []; }).catch(() => {});
+function voiceMode(p){
+  let v = p.voice;
+  if (v === false || v === 'off') return 'off';
+  if (v === 'device') return 'device';
+  if (v === true || v == null) v = p.level === 'kid' ? 'kid' : 'coach';
+  if (PACKS.some(x => x.id === v)) return v;
+  if (PACKS.length) return PACKS.some(x => x.id === 'coach') ? 'coach' : PACKS[0].id;
+  return 'device';
+}
+const normKey = s => s.toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+function trimBuf(b){
+  const d = b.getChannelData(0), th = 0.015, m = Math.round(b.sampleRate * 0.015);
+  let a = 0, z = d.length - 1;
+  while (a < z && Math.abs(d[a]) < th) a++;
+  while (z > a && Math.abs(d[z]) < th) z--;
+  a = Math.max(0, a - m); z = Math.min(d.length - 1, z + m);
+  if (z - a < 100) return b;
+  const nb = AC.createBuffer(b.numberOfChannels, z - a + 1, b.sampleRate);
+  for (let c = 0; c < b.numberOfChannels; c++) nb.copyToChannel(b.getChannelData(c).subarray(a, z + 1), c);
+  return nb;
+}
+function loadPack(id){
+  if (!id || id === 'off' || id === 'device') return Promise.resolve();
+  if (PACKBUF[id]) return PACKBUF[id].p;
+  const pk = PACKBUF[id] = {ready:false, buf:{}};
+  const a = ac(); if (!a) return Promise.resolve();
+  pk.p = fetch(`audio/${id}/manifest.json`).then(r => r.json()).then(m => Promise.all(Object.entries(m.phrases).map(([k, f]) =>
+    fetch(`audio/${id}/${f}`).then(r => r.arrayBuffer()).then(ab => new Promise((res, rej) => a.decodeAudioData(ab, res, rej)))
+      .then(b => { pk.buf[k] = trimBuf(b); }).catch(() => {})
+  ))).then(() => { pk.ready = Object.keys(pk.buf).length > 0; }).catch(() => {});
+  return pk.p;
+}
+function clipSeq(text, pk){
+  const out = [];
+  for (const sent of text.split(/[.!?]+/).map(x => x.trim()).filter(Boolean)) {
+    const k = normKey(sent);
+    if (pk.buf[k]) { out.push(pk.buf[k]); continue; }
+    for (const piece of sent.split(',')) { const k2 = normKey(piece); if (!k2) continue; if (!pk.buf[k2]) return null; out.push(pk.buf[k2]); }
+  }
+  return out.length ? out : null;
+}
+function stopClips(){ while (ACTIVE.length) { try { ACTIVE.pop().stop(); } catch(e) {} } }
+function speak(text, rate, interrupt, who){
+  const p = who || (E ? E.p : prof()), mode = voiceMode(p);
+  if (mode === 'off') return 0;
+  if (mode !== 'device') {
+    const pk = PACKBUF[mode];
+    if (!pk) loadPack(mode);
+    const seq = pk && pk.ready && clipSeq(text, pk);
+    if (seq) {
+      const a = ac();
+      if (interrupt) stopClips();
+      try { speechSynthesis.cancel(); } catch(e) {}
+      const gap = p.level === 'kid' ? 0.16 : p.level === 'pro' ? 0.03 : 0.07;
+      let t0 = a.currentTime + 0.03;
+      for (const b of seq) {
+        const src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(t0);
+        ACTIVE.push(src); src.onended = () => { const i = ACTIVE.indexOf(src); if (i >= 0) ACTIVE.splice(i, 1); };
+        t0 += b.duration + gap;
+      }
+      return t0 - a.currentTime;
+    }
+  }
+  if (!window.speechSynthesis) return 0;
   try {
-    if (interrupt && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+    if (interrupt) { stopClips(); if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); }
     const u = new SpeechSynthesisUtterance(text); if (VOICE) u.voice = VOICE; u.rate = rate || 1.05; speechSynthesis.speak(u);
   } catch(e) {}
+  return 0;
 }
 
 /* ================= CAMERA + TRACKING ================= */
@@ -741,7 +814,7 @@ frame.addEventListener('pointerdown', e => {
 /* ================= SETUP ================= */
 let curW = null, readySince = 0;
 async function openSetup(w){
-  curW = w; ac(); // unlock audio on tap
+  curW = w; ac(); loadPack(voiceMode(prof())); // unlock audio on tap + preload coach voice
   $('#sTitle').textContent = w.name + ' · ' + Math.round(workoutSecs(w)/60) + ' min';
   $('#tCam').textContent = 'Tracking: ' + (camOn ? 'ON' : 'OFF');
   $('#tapHint').style.display = camOn ? '' : 'none';
@@ -818,8 +891,8 @@ function nextSeg(t){
   else if (s.k === 'drill') { say = (s.first ? 'Round ' + s.round + '. ' : '') + 'Drill. ' + sayCombo(parseCombo(s.combo), p) + '. On my call.'; extra = 0.6; }
   else if (s.k === 'random') { say = (s.first ? 'Round ' + s.round + '. ' : '') + 'Combos on my call.'; extra = 0.4; }
   if (s.k === 'free' && s.first) say = 'Round ' + s.round + '. ' + say;
-  speak(say, rate, true);
-  E.nextCall = t + 0.25 + say.split(/\s+/).length * 0.42 / rate + extra;
+  const sd = speak(say, rate, true);
+  E.nextCall = t + (sd > 0 ? sd + 0.15 : 0.25 + say.split(/\s+/).length * 0.42 / rate) + extra;
   $('#hudBlock').textContent = segLabel(s);
 }
 function big(a, b){ $('#hudBig').innerHTML = esc(a) + (b ? `<small>${esc(b)}</small>` : ''); }
@@ -834,8 +907,8 @@ function callCombo(t, s){
   const p = E.p, pace = PACE[p.level], mult = p.pace || 1;
   const str = pickCombo(s); E.lastCombo = str;
   const c = parseCombo(str), text = sayCombo(c, p);
-  speak(text, pace.rate, true);
-  const est = 0.25 + text.split(/\s+/).length * 0.42 / pace.rate;
+  const sd = speak(text, pace.rate, true);
+  const est = sd > 0 ? sd + 0.05 : 0.25 + text.split(/\s+/).length * 0.42 / pace.rate;
   const nP = c.filter(x => !x.def).length, nD = c.length - nP;
   const dur = est + (nP * pace.pp + nD * 0.6 + pace.gap) * mult;
   E.win = {exp:c.filter(x => !x.def).map(x => ({hand:handFor(x.n, p), type:TYPE[x.n], n:x.n, body:x.body})), start:t + est*0.3, end:t + dur, got:[]};
@@ -909,7 +982,7 @@ function tick(t){
   $('#stS').textContent = E.st.score; $('#stK').textContent = E.st.streak;
   if (el >= s.dur) nextSeg(t);
 }
-function pause(){ if (!E || E.paused) return; E.paused = true; E.pauseAt = now(); try { speechSynthesis.cancel(); } catch(e) {} $('#paused').classList.add('on'); }
+function pause(){ if (!E || E.paused) return; E.paused = true; E.pauseAt = now(); stopClips(); try { speechSynthesis.cancel(); } catch(e) {} $('#paused').classList.add('on'); }
 function resume(){
   if (!E || !E.paused) return; const sh = now() - E.pauseAt;
   E.segStart += sh; E.nextCall += sh; E.roundStart += sh; if (E.win) { E.win.start += sh; E.win.end += sh; }
@@ -923,7 +996,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 function finish(early){
   if (!E) return;
   closeWin(); E.running = false;
-  try { speechSynthesis.cancel(); } catch(e) {}
+  stopClips(); try { speechSynthesis.cancel(); } catch(e) {}
   if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
   stopCamera();
   const st = E.st, combos = st.perfect + st.good + st.miss;
