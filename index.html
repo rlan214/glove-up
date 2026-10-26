@@ -247,10 +247,10 @@ const POOLS = {
   pro:['1-2-3-2-3','1-1-2-3-4','1-2-5-6-3-2','1-2-roll-3-2','1-2-3b-3-2','2-3-2-5','1-6-3-2-1','1-2-slip-2-3-2','5-6-5-6-3-2','1-1b-2-3-2','3-4-roll-4-3','1-2-3-2-roll-2-3-2']
 };
 const TYPE = {1:'straight',2:'straight',3:'hook',4:'hook',5:'upper',6:'upper'};
-const NAME = {1:'jab',2:'cross',3:'hook',4:'hook',5:'uppercut',6:'uppercut'};
+const NAME = {1:'jab',2:'cross',3:'hook',4:'hook',5:'upper',6:'upper'}; // short calls, like a real coach
 const SHORT = {1:'JAB',2:'CROSS',3:'HOOK',4:'HOOK',5:'UPPER',6:'UPPER'};
 const NUMW = ['zero','one','two','three','four','five','six'];
-const DEFS = {slip:'slip', roll:'roll', duck:'duck', pull:'pull back'};
+const DEFS = {slip:'slip', roll:'roll', duck:'duck', pull:'pull'};
 
 const D = (combo, dur) => ({k:'drill', combo, dur});
 const R = (dur, pool) => ({k:'random', pool, dur});
@@ -296,9 +296,7 @@ function sayCombo(c, p){
   return c.map(x => {
     if (x.def) return DEFS[x.def] || x.def;
     if (p.calls === 'numbers') return NUMW[x.n] + (x.body ? ' body' : '');
-    const h = handFor(x.n, p);
-    const w = x.n <= 2 ? NAME[x.n] : (h === 'L' ? 'left ' : 'right ') + NAME[x.n];
-    return w + (x.body ? ' to the body' : '');
+    return (x.body ? 'body ' : '') + NAME[x.n];
   }).join(', ');
 }
 
