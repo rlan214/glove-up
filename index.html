@@ -269,25 +269,25 @@ const WORKOUTS = [
   {id:'fast-hands', name:'Fast Hands', level:'kid', desc:'Quick punches, a hook, and jumping jacks.',
    warm:[M('Arm circles',20)], rounds:rep(3,[D('1-1-2',20),D('1-2-3',20),F(15,'burnout','Fast hands! Go go go!'),M('Jumping jacks',15)]), rest:30},
   {id:'jab-cross', name:'Jab & Cross Basics', level:'beg', desc:'4 rounds of the two straight punches, ending each round with power punches.',
-   warm:[M('Arm circles',20),F(30,'coast','Easy shadowboxing')], rounds:rep(4,[D('1',30),D('1-2',30),D('1-1-2',30),F(30,'power','Power punches!')]), rest:60},
+   warm:[M('Arm circles',20),F(30,'coast','Easy shadowboxing')], rounds:rep(4,[D('1',30),D('1-2',30),D('1-1-2',30),F(30,'power','Power punches!')]), rest:30},
   {id:'builder', name:'Combo Builder', level:'beg', desc:'Start with a jab and build up to a 4-punch combo, then do random callouts.',
    warm:[M('Bounce and loosen up',30)], rounds:[
      [D('1',30),D('1-2',30),F(30,'coast','Easy pace'),D('1-2',30)],
      [D('1-2',30),D('1-2-3',30),F(30,'power','Power!'),D('1-2-3',30)],
      [D('1-2-3',30),D('1-2-3-2',30),F(30,'power','Power!'),D('1-2-3-2',30)],
-     [R(60),F(30,'burnout','Burnout! Everything you got'),M('Plank',30)]], rest:60},
+     [R(60),F(30,'burnout','Burnout! Everything you got'),M('Plank',30)]], rest:30},
   {id:'hooks-uppers', name:'Hooks & Uppercuts', level:'int', desc:'Power punches inside, built into real combos.',
    warm:[M('Torso twists',30),F(30,'coast','Shadowbox easy')], rounds:[
      [D('3-4',30),D('1-2-3',30),D('5-6',30),F(30,'power','Power hooks')],
      [D('1-2-3-2',30),D('1-6-3-2',30),D('3-4-3',30),F(30,'burnout','Burnout!')],
      [D('5-6-3-2',40),D('1-2-5-2',40),R(40)],
-     [R(90),F(30,'burnout','Burnout! Empty the tank')]], rest:60},
+     [R(90),F(30,'burnout','Burnout! Empty the tank')]], rest:30},
   {id:'combos-core', name:'Combos & Core', level:'int', desc:'Combos, then a core move every round.',
-   warm:[M('Jumping jacks',30)], rounds:['1-2-3-2','1-6-3-2','3-2-3','1-2-5-2','1-1-2-3'].map((c,i)=>[R(45),D(c,45),M(['Plank','Squats',"Boxer's twist",'Push-ups','Lunges'][i],30)]), rest:45},
+   warm:[M('Jumping jacks',30)], rounds:['1-2-3-2','1-6-3-2','3-2-3','1-2-5-2','1-1-2-3'].map((c,i)=>[R(45),D(c,45),M(['Plank','Squats',"Boxer's twist",'Push-ups','Lunges'][i],30)]), rest:30},
   {id:'callouts', name:'Callout Rounds', level:'any', desc:'3 × 3:00 of random combos at your level with a burnout finish.',
-   rounds:rep(3,[R(150),F(30,'burnout','Burnout!')]), rest:60},
+   rounds:rep(3,[R(150),F(30,'burnout','Burnout!')]), rest:30},
   {id:'fight-night', name:'Fight Night', level:'pro', desc:'6 × 3:00 pro rounds with long combos, defense and burnouts.',
-   rounds:rep(6,[R(150,'pro'),F(30,'burnout','Burnout!')]), rest:60},
+   rounds:rep(6,[R(150,'pro'),F(30,'burnout','Burnout!')]), rest:30},
 ];
 
 function parseCombo(str){
